@@ -46,7 +46,7 @@ The stakeholder map should be organized as queues, not as an undifferentiated se
 | Queue | Role | Contents | Pitch treatment |
 |---|---|---|---|
 | Trusted Financial Administration | Active wedge | Treuhand, accounting, tax, payroll, HR admin, corporate services | Lead with Treuhand proof; mention payroll as adjacent. |
-| Wealth / Treasury / Family Office Ops | Credibility wedge | Wealth managers, treasury boutiques, family-office admin, SPV reporting | Use where Ruslan's finance credibility matters; keep compliance boundary explicit. |
+| Wealth / Treasury / Family Office Ops | Credibility wedge | Wealth managers, treasury boutiques, family-office admin, SPV reporting | Use where founder/operator finance credibility matters; keep compliance boundary explicit. |
 | Insurance & Risk Intermediation | Future roll-up candidate | SME brokers, benefits brokers, claims/admin brokers | Attractive future queue; do not build before Treuhand evidence. |
 | Real Asset Administration | Second-wave queue | Property management, STWEG admin, rental admin, permit support | Attractive admin pain; likely needs a local operator partner. |
 | Regulated Financial Infrastructure | Separate optionality | Payments, crypto on/off-ramp, PSP/AML/KYC operations | Keep separate from conservative Swiss SME cash-flow pitch. |

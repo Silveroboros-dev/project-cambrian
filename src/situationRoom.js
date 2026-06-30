@@ -72,6 +72,14 @@ export const SITUATION_ROOM_SCENARIOS = [
     label: "Inbound email intake",
     roomId: "room_case_march_2026",
     primaryAgentId: "A-INGEST-001",
+    sourceKind: "synthetic_workspace_inbox",
+    sourceLabel: "Synthetic Workspace/Gmail-style inbox",
+    triggerType: "mailbox_message_received",
+    sourceActor: "client_contact",
+    payloadTitle: "March 2026 Treuhand packet",
+    payloadPreview: "March 2026 Treuhand packet; bank statement and sales export attached; MWST-Abrechnung missing.",
+    expectedAgentIds: ["A-INGEST-001", "A-SEC-001", "A-TREU-001", "A-AUTH-001"],
+    adapterBoundary: "Simulated/local inbox event only; no real Gmail, Drive, or mailbox polling.",
     chatbotContrast: "Waits for a human to paste the email and explain context.",
     cambrianContrast: "Notices a synthetic mailbox event, normalizes evidence, opens work, and blocks the client draft behind review."
   },
@@ -80,6 +88,14 @@ export const SITUATION_ROOM_SCENARIOS = [
     label: "Confidential upload attempt",
     roomId: "room_security",
     primaryAgentId: "A-SEC-001",
+    sourceKind: "simulated_external_llm_box",
+    sourceLabel: "Simulated ChatGPT/Claude upload box",
+    triggerType: "external_llm_upload_attempt",
+    sourceActor: "human_employee",
+    payloadTitle: "External LLM upload attempt",
+    payloadPreview: "Payroll, bank, and client-sensitive text aimed at an external LLM.",
+    expectedAgentIds: ["A-SEC-001", "A-CAD-001"],
+    adapterBoundary: "Simulated/local upload box only; no browser monitoring, no DLP integration, no LLM call.",
     chatbotContrast: "Answers only after confidential text has already been pasted.",
     cambrianContrast: "Stops the risky upload locally, names deterministic risk signals, and leaves an audit trail."
   },
@@ -88,6 +104,14 @@ export const SITUATION_ROOM_SCENARIOS = [
     label: "Employee onboarding",
     roomId: "room_onboarding",
     primaryAgentId: "A-AUTH-001",
+    sourceKind: "synthetic_hr_request",
+    sourceLabel: "Synthetic HR/onboarding request",
+    triggerType: "employee_onboarding_request",
+    sourceActor: "human_boss",
+    payloadTitle: "Junior assistant access request",
+    payloadPreview: "Junior accounting assistant needs Treuhand intake access.",
+    expectedAgentIds: ["A-AUTH-001", "A-SEC-001", "A-CAD-001"],
+    adapterBoundary: "Simulated/local HR request only; no real IAM, HRIS, Slack, or Drive changes.",
     chatbotContrast: "Suggests generic access in a chat reply.",
     cambrianContrast: "Maps the role to least-privilege access and requires boss approval before any access claim."
   },
@@ -96,6 +120,14 @@ export const SITUATION_ROOM_SCENARIOS = [
     label: "Agent handoff gap",
     roomId: "room_case_march_2026",
     primaryAgentId: "A-GAP-001",
+    sourceKind: "situation_room_agent_handoff",
+    sourceLabel: "Situation Room agent handoff",
+    triggerType: "agent_handoff_observed",
+    sourceActor: "A-INGEST-001 -> A-TREU-001",
+    payloadTitle: "Period normalization handoff",
+    payloadPreview: "Period wording passed as März/Maerz/March while A-TREU expects normalized 2026-03.",
+    expectedAgentIds: ["A-GAP-001", "A-AUTH-001"],
+    adapterBoundary: "Simulated/local agent handoff only; no durable memory write without approval.",
     chatbotContrast: "Misses the operating failure unless someone asks about it.",
     cambrianContrast: "Watches agent handoff artifacts and proposes a skill update without approving durable memory."
   },
@@ -104,6 +136,14 @@ export const SITUATION_ROOM_SCENARIOS = [
     label: "Weekly control audit",
     roomId: "room_weekly_control",
     primaryAgentId: "A-CAD-001",
+    sourceKind: "synthetic_weekly_scheduler",
+    sourceLabel: "Synthetic weekly scheduler",
+    triggerType: "weekly_control_audit_due",
+    sourceActor: "system_scheduler",
+    payloadTitle: "Weekly local operating review",
+    payloadPreview: "Summarize local runs, approvals, warnings, blocked work, tool usage, and token spend.",
+    expectedAgentIds: ["A-CAD-001"],
+    adapterBoundary: "Simulated/local scheduler only; no telemetry backend, calendar integration, or token billing API.",
     chatbotContrast: "Cannot reliably reconstruct what happened last week from scattered prompts.",
     cambrianContrast: "Reviews local logs, approvals, warnings, and tool usage in one auditable cadence."
   }
@@ -220,6 +260,7 @@ export function createInitialSituationRoomState(caseId = "case_demo_march_2026",
     workOrders: [],
     situationCards: [],
     approvalRequests: [],
+    situationSourceEvents: [],
     selectedSituationCardId: null,
     expandedSituationAgentId: null,
     situationDemoConductor: createInitialDemoConductor(createdAt),
@@ -313,6 +354,7 @@ export function postSituationMessage(store, { roomId, text, actorId = "human_rev
       workOrderId: scenarioResult.actRecord.createdWorkOrderIds[0] || null,
       cardIds: scenarioResult.actRecord.createdCardIds,
       approvalIds: scenarioResult.actRecord.createdApprovalIds,
+      sourceEventId: scenarioResult.actRecord.sourceEventId,
       summary: scenarioResult.reused
         ? `${parsed.agentId} selected completed ${scenarioResult.actRecord.label}; no duplicate artifacts created.`
         : `${parsed.agentId} routed to ${scenarioResult.actRecord.label} and created local artifacts.`,
@@ -400,12 +442,13 @@ export function runSituationScenario(store, scenarioId, createdAt = new Date().t
   ensureSituationRoomCollections(store);
   const scenario = SITUATION_ROOM_SCENARIOS.find((item) => item.id === scenarioId);
   if (!scenario) throw new Error(`Unknown situation scenario: ${scenarioId}`);
+  const sourceEvent = createSourceEventForScenario(scenario, activeCaseFromStore(store), createdAt);
 
-  if (scenarioId === "inbound_email_intake") return runInboundEmailScenario(store, scenario, createdAt);
-  if (scenarioId === "confidential_upload_attempt") return runConfidentialUploadScenario(store, scenario, createdAt);
-  if (scenarioId === "employee_onboarding") return runEmployeeOnboardingScenario(store, scenario, createdAt);
-  if (scenarioId === "agent_handoff_gap") return runAgentHandoffGapScenario(store, scenario, createdAt);
-  return runWeeklyControlAuditScenario(store, scenario, createdAt);
+  if (scenarioId === "inbound_email_intake") return runInboundEmailScenario(store, scenario, createdAt, sourceEvent);
+  if (scenarioId === "confidential_upload_attempt") return runConfidentialUploadScenario(store, scenario, createdAt, sourceEvent);
+  if (scenarioId === "employee_onboarding") return runEmployeeOnboardingScenario(store, scenario, createdAt, sourceEvent);
+  if (scenarioId === "agent_handoff_gap") return runAgentHandoffGapScenario(store, scenario, createdAt, sourceEvent);
+  return runWeeklyControlAuditScenario(store, scenario, createdAt, sourceEvent);
 }
 
 export function runSituationDemoAct(store, scenarioId, createdAt = new Date().toISOString()) {
@@ -428,6 +471,7 @@ export function runSituationDemoAct(store, scenarioId, createdAt = new Date().to
       workOrderId: existingAct.createdWorkOrderIds[0] || null,
       cardIds: existingAct.createdCardIds,
       approvalIds: existingAct.createdApprovalIds,
+      sourceEventId: existingAct.sourceEventId,
       summary: `${existingAct.label} already completed. Reset demo state to rerun the act; no duplicate artifacts created.`,
       createdAt
     };
@@ -455,6 +499,8 @@ export function runSituationDemoAct(store, scenarioId, createdAt = new Date().to
     createdCardIds: result.cards.map((card) => card.id),
     createdWorkOrderIds: result.workOrder ? [result.workOrder.id] : [],
     createdApprovalIds: result.approvalRequests.map((approval) => approval.id),
+    sourceEventId: result.sourceEvent?.id || null,
+    sourceEvent: result.sourceEvent || null,
     chatbotContrast: scenario.chatbotContrast,
     cambrianContrast: scenario.cambrianContrast,
     summary: `${scenario.label} created ${result.cards.length} card(s), ${result.workOrder ? 1 : 0} work order(s), ${result.approvalRequests.length} approval gate(s), and ${logDelta} local log record(s).`
@@ -477,10 +523,35 @@ export function runSituationDemoAct(store, scenarioId, createdAt = new Date().to
     workOrderId: result.workOrder?.id || null,
     cardIds: actRecord.createdCardIds,
     approvalIds: actRecord.createdApprovalIds,
+    sourceEventId: actRecord.sourceEventId,
     summary: actRecord.summary,
     createdAt
   };
   return { ...result, actRecord };
+}
+
+function createSourceEventForScenario(scenario, caseRecord, createdAt) {
+  const id = createId("src", scenario.id, scenario.triggerType, createdAt);
+  return {
+    id,
+    sourceEventId: id,
+    scenarioId: scenario.id,
+    roomId: scenario.roomId,
+    caseId: caseRecord?.id || null,
+    sourceKind: scenario.sourceKind,
+    sourceLabel: scenario.sourceLabel,
+    triggerType: scenario.triggerType,
+    sourceActor: scenario.sourceActor,
+    payloadTitle: scenario.payloadTitle,
+    payloadPreview: scenario.payloadPreview,
+    adapterMode: "synthetic_local",
+    adapterBoundary: scenario.adapterBoundary,
+    truthLabel: SITUATION_TRUTH_LABEL,
+    truthLabelText: "synthetic/local only",
+    externalEffect: "none",
+    expectedAgentIds: scenario.expectedAgentIds || [scenario.primaryAgentId],
+    createdAt
+  };
 }
 
 export function resolveSituationApproval(
@@ -531,6 +602,7 @@ export function resolveSituationApproval(
     severity: approval.status === "approved" ? "info" : "warning",
     approvalId,
     workOrderId: approval.workOrderId,
+    sourceEventId: approval.sourceEventId || null,
     traceId: approval.traceId,
     createdAt
   });
@@ -542,6 +614,7 @@ export function resolveSituationApproval(
     workOrderId: approval.workOrderId,
     sourceType: "approval",
     sourceId: approval.id,
+    sourceEventId: approval.sourceEventId || null,
     traceId: approval.traceId,
     summary: nextStepSummaryForApproval(approval),
     choices: nextStepChoicesForApproval(approval),
@@ -591,6 +664,7 @@ export function resetSituationRoomDemoState(store, createdAt = new Date().toISOS
   store.workOrders = [];
   store.situationCards = [];
   store.approvalRequests = [];
+  store.situationSourceEvents = [];
   store.selectedSituationCardId = null;
   store.expandedSituationAgentId = null;
   store.situationDemoConductor = createInitialDemoConductor(createdAt);
@@ -708,6 +782,7 @@ export function createSituationDemoSnapshot(
       workOrders: store.workOrders,
       situationCards: store.situationCards,
       approvalRequests: store.approvalRequests,
+      situationSourceEvents: store.situationSourceEvents,
       selectedSituationCardId: store.selectedSituationCardId || null,
       situationDemoConductor: store.situationDemoConductor || createInitialDemoConductor(createdAt),
       situationDemoReport: store.situationDemoReport || null,
@@ -780,6 +855,7 @@ export function importSituationDemoSnapshot(store, snapshotInput, importedAt = n
   store.workOrders = cloneArray(payload.workOrders);
   store.situationCards = cloneArray(payload.situationCards);
   store.approvalRequests = cloneArray(payload.approvalRequests);
+  store.situationSourceEvents = cloneArray(payload.situationSourceEvents || []);
   store.selectedSituationCardId = payload.selectedSituationCardId || null;
   store.expandedSituationAgentId = null;
   store.situationDemoConductor = payload.situationDemoConductor || createInitialDemoConductor(importedAt);
@@ -846,6 +922,9 @@ export function validateSituationDemoSnapshot(snapshot) {
   for (const key of ["roomMessages", "situationEventLog", "situationCards", "workOrders", "approvalRequests"]) {
     if (!Array.isArray(payload[key])) errors.push(`payload.${key} must be an array.`);
   }
+  if (payload.situationSourceEvents && !Array.isArray(payload.situationSourceEvents)) {
+    errors.push("payload.situationSourceEvents must be an array.");
+  }
   return { valid: errors.length === 0, errors };
 }
 
@@ -874,6 +953,7 @@ export function runWeekTwoContinuityScenario(store, createdAt = new Date().toISO
   ensureSituationRoomCollections(store);
   const caseRecord = activeCaseFromStore(store);
   const priorLogs = store.situationEventLog.length;
+  const priorSourceEvents = store.situationSourceEvents.length;
   const priorApprovals = store.approvalRequests.length;
   const pendingApprovals = store.approvalRequests.filter((approval) => approval.status === "pending");
   const blockedWorkOrders = store.workOrders.filter((workOrder) => workOrder.status === "blocked");
@@ -899,7 +979,7 @@ export function runWeekTwoContinuityScenario(store, createdAt = new Date().toISO
       agentId: "A-CAD-001",
       caseId: caseRecord?.id || null,
       title: "Week 2 prior log review",
-      summary: `A-CAD reviewed ${priorLogs} prior local log record(s), ${priorApprovals} approval gate(s), and ${store.workOrders.length} work order(s).`,
+      summary: `A-CAD reviewed ${priorSourceEvents} source event(s), ${priorLogs} prior local log record(s), ${priorApprovals} approval gate(s), and ${store.workOrders.length} work order(s).`,
       severity: "info",
       workOrderId: workOrder.id,
       traceId,
@@ -959,12 +1039,12 @@ export function runWeekTwoContinuityScenario(store, createdAt = new Date().toISO
     roomId: "room_weekly_control",
     workOrderId: workOrder.id,
     cardIds: cards.map((card) => card.id),
-    summary: `Week ${scenarioWeek} continuity scenario reviewed ${priorLogs} prior log record(s).`,
+    summary: `Week ${scenarioWeek} continuity scenario reviewed ${priorSourceEvents} source event(s) and ${priorLogs} prior log record(s).`,
     createdAt
   };
   appendSystemRoomMessage(store, {
     roomId: "room_weekly_control",
-    text: `Week ${scenarioWeek} continuity scenario reviewed ${priorLogs} prior log record(s) and created work order ${workOrder.id}.`,
+    text: `Week ${scenarioWeek} continuity scenario reviewed ${priorSourceEvents} source event(s), ${priorLogs} prior log record(s), and created work order ${workOrder.id}.`,
     createdAt: offsetIso(createdAt, 3)
   });
   appendSituationLog(store, {
@@ -1019,6 +1099,7 @@ export function appendAgentNextStepProposal(
     workOrderId = null,
     sourceType,
     sourceId,
+    sourceEventId = null,
     traceId = null,
     summary,
     choices = [],
@@ -1042,6 +1123,7 @@ export function appendAgentNextStepProposal(
       effect: "advisory_only"
     })),
     workOrderId,
+    sourceEventId,
     traceId: traceId || createId("trace", "next_step", sourceId),
     createdAt
   });
@@ -1073,7 +1155,7 @@ function matchDemoCommand(text, agentId) {
   );
 }
 
-function runInboundEmailScenario(store, scenario, createdAt) {
+function runInboundEmailScenario(store, scenario, createdAt, sourceEvent) {
   const caseRecord = activeCaseFromStore(store);
   const traceId = createId("trace", scenario.id, createdAt);
   const evidenceId = createId("ev", scenario.id, "mail");
@@ -1151,10 +1233,10 @@ function runInboundEmailScenario(store, scenario, createdAt) {
     scenarioCard(scenario, traceId, "agent_run", "A-TREU-001", caseRecord.id, "Treuhand intake review completed", `${missingCount} missing checklist item(s), draft follow-up created.`, missingCount > 0 ? "warning" : "info", output.recommendations[0]?.evidence_ids || [], createdAt, run.id),
     scenarioCard(scenario, traceId, "human_review", "A-AUTH-001", caseRecord.id, "Human review required", "Draft follow-up is blocked until reviewer approval.", "warning", output.recommendations[0]?.evidence_ids || [], createdAt, run.id, approval.id)
   ];
-  return appendScenarioResult(store, { scenario, workOrder, cards, approvalRequests: [approval], createdAt, auditMessage: "Ran inbound email intake Situation Room scenario." });
+  return appendScenarioResult(store, { scenario, sourceEvent, workOrder, cards, approvalRequests: [approval], createdAt, auditMessage: "Ran inbound email intake Situation Room scenario." });
 }
 
-function runConfidentialUploadScenario(store, scenario, createdAt) {
+function runConfidentialUploadScenario(store, scenario, createdAt, sourceEvent) {
   const caseRecord = activeCaseFromStore(store);
   const traceId = createId("trace", scenario.id, createdAt);
   const workOrder = createScenarioWorkOrder({ scenario, caseRecord, command: "@sec check this upload attempt", traceId, createdAt });
@@ -1201,10 +1283,10 @@ function runConfidentialUploadScenario(store, scenario, createdAt) {
     scenarioCard(scenario, traceId, "policy_violation_warning", "A-SEC-001", caseRecord.id, "Upload blocked locally", "A-SEC-001 recommends using an internal redacted packet.", "high", [], createdAt),
     scenarioCard(scenario, traceId, "audit_event_recorded", "A-CAD-001", caseRecord.id, "Audit event queued", "The weekly audit will summarize this security event.", "info", [], createdAt)
   ];
-  return appendScenarioResult(store, { scenario, workOrder, cards, approvalRequests: [], createdAt, auditMessage: "Ran confidential upload attempt Situation Room scenario." });
+  return appendScenarioResult(store, { scenario, sourceEvent, workOrder, cards, approvalRequests: [], createdAt, auditMessage: "Ran confidential upload attempt Situation Room scenario." });
 }
 
-function runEmployeeOnboardingScenario(store, scenario, createdAt) {
+function runEmployeeOnboardingScenario(store, scenario, createdAt, sourceEvent) {
   const caseRecord = activeCaseFromStore(store);
   const traceId = createId("trace", scenario.id, createdAt);
   const workOrder = createScenarioWorkOrder({ scenario, caseRecord, command: "@auth onboard junior accounting assistant", traceId, createdAt });
@@ -1253,10 +1335,10 @@ function runEmployeeOnboardingScenario(store, scenario, createdAt) {
     scenarioCard(scenario, traceId, "access_recommendation_created", "A-AUTH-001", caseRecord.id, "Access recommendation created", "Read-only case packets and draft reminders; no send permission; raw payroll blocked.", "warning", [], createdAt),
     scenarioCard(scenario, traceId, "boss_approval_required", "A-AUTH-001", caseRecord.id, "Boss approval required", "Access remains pending until a human boss approves or rejects.", "warning", [], createdAt, null, approval.id)
   ];
-  return appendScenarioResult(store, { scenario, workOrder, cards, approvalRequests: [approval], createdAt, auditMessage: "Ran employee onboarding Situation Room scenario." });
+  return appendScenarioResult(store, { scenario, sourceEvent, workOrder, cards, approvalRequests: [approval], createdAt, auditMessage: "Ran employee onboarding Situation Room scenario." });
 }
 
-function runAgentHandoffGapScenario(store, scenario, createdAt) {
+function runAgentHandoffGapScenario(store, scenario, createdAt, sourceEvent) {
   const caseRecord = activeCaseFromStore(store);
   const traceId = createId("trace", scenario.id, createdAt);
   const workOrder = createScenarioWorkOrder({ scenario, caseRecord, command: "@gap inspect last failed handoff", traceId, createdAt });
@@ -1322,10 +1404,10 @@ function runAgentHandoffGapScenario(store, scenario, createdAt) {
     scenarioCard(scenario, traceId, "repeated_failure_pattern_detected", "A-GAP-001", caseRecord.id, "Repeated failure pattern detected", "Period wording may create recurring noisy warnings.", "warning", [], createdAt),
     scenarioCard(scenario, traceId, "skill_update_candidate_created", "A-GAP-001", caseRecord.id, "Skill update candidate created", memoryCandidate.proposed_statement, "info", [], createdAt, null, approval.id)
   ];
-  return appendScenarioResult(store, { scenario, workOrder, cards, approvalRequests: [approval], createdAt, auditMessage: "Ran agent handoff gap Situation Room scenario." });
+  return appendScenarioResult(store, { scenario, sourceEvent, workOrder, cards, approvalRequests: [approval], createdAt, auditMessage: "Ran agent handoff gap Situation Room scenario." });
 }
 
-function runWeeklyControlAuditScenario(store, scenario, createdAt) {
+function runWeeklyControlAuditScenario(store, scenario, createdAt, sourceEvent) {
   const caseRecord = activeCaseFromStore(store);
   const traceId = createId("trace", scenario.id, createdAt);
   const workOrder = createScenarioWorkOrder({ scenario, caseRecord, command: "@cad run weekly control audit", traceId, createdAt });
@@ -1362,10 +1444,10 @@ function runWeeklyControlAuditScenario(store, scenario, createdAt) {
     scenarioCard(scenario, traceId, "pending_approvals_summary", "A-CAD-001", caseRecord.id, "Pending approvals summarized", `${pendingApprovals} approval request(s) still pending.`, pendingApprovals > 0 ? "warning" : "info", [], createdAt),
     scenarioCard(scenario, traceId, "token_spend_summary", "A-CAD-001", caseRecord.id, "Token spend summarized", "Token spend: not applicable / zero in deterministic local mode.", "info", [], createdAt)
   ];
-  return appendScenarioResult(store, { scenario, workOrder, cards, approvalRequests: [], createdAt, auditMessage: "Ran weekly control audit Situation Room scenario." });
+  return appendScenarioResult(store, { scenario, sourceEvent, workOrder, cards, approvalRequests: [], createdAt, auditMessage: "Ran weekly control audit Situation Room scenario." });
 }
 
-function appendScenarioResult(store, { scenario, workOrder, cards, approvalRequests, createdAt, auditMessage }) {
+function appendScenarioResult(store, { scenario, sourceEvent, workOrder, cards, approvalRequests, createdAt, auditMessage }) {
   store.activeSituationRoomId = scenario.roomId;
   const auditEvent = {
     id: createId("audit", scenario.id, createdAt),
@@ -1374,19 +1456,36 @@ function appendScenarioResult(store, { scenario, workOrder, cards, approvalReque
     message: auditMessage,
     createdAt
   };
+  workOrder.sourceEventId = sourceEvent.id;
   const normalizedCards = cards.map((card) => ({
     ...card,
     workOrderId: card.workOrderId || workOrder.id,
+    sourceEventId: sourceEvent.id,
     truthLabel: card.truthLabel || SITUATION_TRUTH_LABEL,
     truthLabelText: card.truthLabelText || "synthetic/local only"
   }));
-  workOrder.approvalIds = approvalRequests.map((item) => item.id);
+  const normalizedApprovals = approvalRequests.map((approval) => ({
+    ...approval,
+    sourceEventId: sourceEvent.id
+  }));
+  workOrder.approvalIds = normalizedApprovals.map((item) => item.id);
   workOrder.auditEventIds = [auditEvent.id];
   workOrder.cardIds = normalizedCards.map((card) => card.id);
   workOrder.evidenceIds = unique(normalizedCards.flatMap((card) => card.evidenceIds || []));
+  store.situationSourceEvents.unshift(sourceEvent);
+  appendSituationLog(store, {
+    roomId: scenario.roomId,
+    eventType: "source_event_received",
+    artifactType: "source_event",
+    artifactId: sourceEvent.id,
+    actorId: sourceEvent.sourceActor || "system",
+    sourceEventId: sourceEvent.id,
+    summary: `${sourceEvent.sourceLabel} emitted ${sourceEvent.triggerType}: ${sourceEvent.payloadTitle}.`,
+    createdAt
+  });
   store.workOrders.unshift(workOrder);
   store.situationCards.unshift(...normalizedCards);
-  store.approvalRequests.unshift(...approvalRequests);
+  store.approvalRequests.unshift(...normalizedApprovals);
   store.auditEvents.unshift(auditEvent);
   appendSituationLog(store, {
     roomId: scenario.roomId,
@@ -1394,10 +1493,11 @@ function appendScenarioResult(store, { scenario, workOrder, cards, approvalReque
     artifactType: "work_order",
     artifactId: workOrder.id,
     actorId: scenario.primaryAgentId,
+    sourceEventId: sourceEvent.id,
     summary: auditMessage,
     createdAt
   });
-  return { workOrder, cards: normalizedCards, approvalRequests };
+  return { sourceEvent, workOrder, cards: normalizedCards, approvalRequests: normalizedApprovals };
 }
 
 function createScenarioWorkOrder({ scenario, caseRecord, command, traceId, createdAt }) {
@@ -1496,6 +1596,7 @@ function createSituationCard({
   workOrderId = null,
   approvalId = null,
   runId = null,
+  sourceEventId = null,
   traceId,
   createdAt
 }) {
@@ -1514,6 +1615,7 @@ function createSituationCard({
     workOrderId,
     approvalId,
     runId,
+    sourceEventId,
     traceId,
     approvalStatus: approvalId ? "pending" : "not_required",
     blockedByApproval: Boolean(approvalId),
@@ -1579,7 +1681,7 @@ function appendSystemRoomMessage(store, { roomId, text, createdAt = new Date().t
 
 function appendSituationLog(
   store,
-  { roomId, eventType, artifactType, artifactId, actorId, summary, createdAt = new Date().toISOString() }
+  { roomId, eventType, artifactType, artifactId, actorId, sourceEventId = null, summary, createdAt = new Date().toISOString() }
 ) {
   ensureSituationRoomCollections(store);
   const log = createSituationLog({
@@ -1589,6 +1691,7 @@ function appendSituationLog(
     artifactType,
     artifactId,
     actorId,
+    sourceEventId,
     summary,
     createdAt
   });
@@ -1596,7 +1699,7 @@ function appendSituationLog(
   return log;
 }
 
-function createSituationLog({ id, roomId, eventType, artifactType, artifactId, actorId, summary, createdAt }) {
+function createSituationLog({ id, roomId, eventType, artifactType, artifactId, actorId, sourceEventId = null, summary, createdAt }) {
   return {
     id,
     logId: id,
@@ -1605,6 +1708,7 @@ function createSituationLog({ id, roomId, eventType, artifactType, artifactId, a
     artifactType,
     artifactId,
     actorId,
+    sourceEventId,
     summary,
     storage: "localStorage:agentops-core-store-v1.situationEventLog",
     createdAt
@@ -1678,6 +1782,7 @@ function ensureSituationRoomCollections(store) {
   store.workOrders ||= [];
   store.situationCards ||= [];
   store.approvalRequests ||= [];
+  store.situationSourceEvents ||= [];
   store.selectedSituationCardId ||= null;
   store.expandedSituationAgentId ||= null;
   store.situationDemoConductor ||= createInitialDemoConductor();

@@ -67,6 +67,7 @@ export function ensureStoreShape(store) {
   shaped.workOrders ||= [];
   shaped.situationCards ||= [];
   shaped.approvalRequests ||= [];
+  shaped.situationSourceEvents ||= situationSeed.situationSourceEvents;
   shaped.selectedSituationCardId ||= null;
   shaped.expandedSituationAgentId ||= null;
   shaped.situationDemoConductor ||= situationSeed.situationDemoConductor;

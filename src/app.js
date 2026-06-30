@@ -207,6 +207,7 @@ function renderSituationRoom() {
   const roomMessages = store.roomMessages.filter((message) => message.roomId === roomId);
   const roomWorkOrders = store.workOrders.filter((workOrder) => workOrder.roomId === roomId);
   const roomApprovals = store.approvalRequests.filter((approval) => approval.roomId === roomId);
+  const roomSourceEvents = (store.situationSourceEvents || []).filter((event) => event.roomId === roomId);
   const roomLogs = (store.situationEventLog || []).filter((log) => log.roomId === roomId);
   const allPendingApprovals = store.approvalRequests.filter((approval) => approval.status === "pending");
   const agentParticipation = summarizeSituationAgentParticipation(store);
@@ -318,7 +319,7 @@ function renderSituationRoom() {
             ${SITUATION_ARTIFACT_PACKS.map((pack) => renderPackButton(pack, activePack)).join("")}
           </div>
           <div class="packed-artifact-list">
-            ${renderSituationArtifactPack(activePack, { roomCards, roomWorkOrders, roomApprovals, roomLogs })}
+            ${renderSituationArtifactPack(activePack, { roomCards, roomWorkOrders, roomApprovals, roomSourceEvents, roomLogs })}
           </div>
         </div>
 
@@ -1275,6 +1276,7 @@ function renderDemoActResult(act) {
   }
   return `
     <div class="demo-act-result is-populated">
+      ${renderSourceEventPanel(act.sourceEvent)}
       <div class="subpanel-heading compact-heading">
         <h3>Created this act</h3>
         <span>${escapeHtml(act.primaryAgentId)}</span>
@@ -1300,6 +1302,50 @@ function renderDemoActResult(act) {
         ${renderCompactIdMeta("cards", act.createdCardIds, 2)}
         ${renderCompactIdMeta("approvals", act.createdApprovalIds, 1)}
       </div>
+    </div>
+  `;
+}
+
+function renderSourceEventPanel(sourceEvent) {
+  if (!sourceEvent) {
+    return `
+      <div class="event-source-panel">
+        <strong>Event Source</strong>
+        <p>Run a conductor act to show the synthetic event before agents respond.</p>
+      </div>
+    `;
+  }
+  return `
+    <div class="event-source-panel">
+      <div class="subpanel-heading compact-heading">
+        <h3>Event Source</h3>
+        <span>${escapeHtml(sourceEvent.sourceLabel)}</span>
+      </div>
+      <p>${escapeHtml(sourceEvent.payloadPreview)}</p>
+      <div class="source-detail-grid">
+        <div>
+          <strong>Trigger</strong>
+          <span>${escapeHtml(sourceEvent.triggerType)}</span>
+        </div>
+        <div>
+          <strong>Source actor</strong>
+          <span>${escapeHtml(sourceEvent.sourceActor)}</span>
+        </div>
+        <div>
+          <strong>Adapter mode</strong>
+          <span>synthetic/local only</span>
+        </div>
+        <div>
+          <strong>External effects</strong>
+          <span>${escapeHtml(sourceEvent.externalEffect || "none")}</span>
+        </div>
+      </div>
+      <div class="mini-meta">
+        <span>kind: ${escapeHtml(sourceEvent.sourceKind)}</span>
+        <span>expected agents: ${escapeHtml((sourceEvent.expectedAgentIds || []).join(", "))}</span>
+        ${renderCompactIdMeta("source event", [sourceEvent.id], 1)}
+      </div>
+      <p class="boundary-copy">${escapeHtml(sourceEvent.adapterBoundary || "Simulated/local source only; no external service integration.")}</p>
     </div>
   `;
 }
@@ -1387,6 +1433,7 @@ function renderSituationLastAction(action) {
       <div class="mini-meta">
         ${action.roomId ? `<span>room: ${escapeHtml(action.roomId)}</span>` : ""}
         ${action.workOrderId ? renderCompactIdMeta("work order", [action.workOrderId], 1) : ""}
+        ${action.sourceEventId ? renderCompactIdMeta("source event", [action.sourceEventId], 1) : ""}
         ${action.approvalId ? renderCompactIdMeta("approval", [action.approvalId], 1) : ""}
         ${action.cardIds?.length ? renderCompactIdMeta("cards", action.cardIds, 2) : ""}
         <span>${formatTime(action.createdAt)}</span>
@@ -1404,11 +1451,12 @@ function renderPackButton(pack, activePack) {
   `;
 }
 
-function renderSituationArtifactPack(activePack, { roomCards, roomWorkOrders, roomApprovals, roomLogs }) {
+function renderSituationArtifactPack(activePack, { roomCards, roomWorkOrders, roomApprovals, roomSourceEvents, roomLogs }) {
   if (activePack === "events") {
     const events = [
+      ...roomSourceEvents,
       ...roomCards.filter((card) => card.type !== "agent_next_step_proposal"),
-      ...roomLogs.filter((log) => log.eventType === "scenario_run" || log.eventType === "demo_command_routed")
+      ...roomLogs.filter((log) => log.eventType === "source_event_received" || log.eventType === "scenario_run" || log.eventType === "demo_command_routed")
     ].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
     return events.length === 0 ? emptyState("No local events in this room.") : events.map(renderPackedEvent).join("");
   }
@@ -1442,6 +1490,17 @@ function renderPackedCard(card) {
 }
 
 function renderPackedEvent(event) {
+  if (event.sourceEventId && event.triggerType) {
+    return `
+      <details class="packed-artifact packed-event">
+        <summary>
+          <strong>${escapeHtml(event.sourceLabel)}</strong>
+          <span>${escapeHtml(event.triggerType)} - ${formatTime(event.createdAt)}</span>
+        </summary>
+        ${renderSourceEventPanel(event)}
+      </details>
+    `;
+  }
   if (event.cardId) {
     return `
       <details class="packed-artifact packed-event">
@@ -1450,9 +1509,10 @@ function renderPackedEvent(event) {
           <span>${escapeHtml(event.type)} - agent ${escapeHtml(event.agentId)} - ${formatTime(event.createdAt)}</span>
         </summary>
         <div class="mini-meta">
-          <span>card: ${escapeHtml(event.id)}</span>
-          <span>work order: ${escapeHtml(event.workOrderId || "none")}</span>
-          <span>trace: ${escapeHtml(event.traceId)}</span>
+          ${renderCompactIdMeta("card", [event.id], 1)}
+          ${event.workOrderId ? renderCompactIdMeta("work order", [event.workOrderId], 1) : `<span>work order: none</span>`}
+          ${event.sourceEventId ? renderCompactIdMeta("source event", [event.sourceEventId], 1) : ""}
+          ${renderCompactIdMeta("trace", [event.traceId], 1)}
         </div>
         <p>${escapeHtml(event.summary)}</p>
       </details>
@@ -1497,6 +1557,7 @@ function renderPackedLog(log) {
       <div class="mini-meta">
         <span>log: ${escapeHtml(log.id)}</span>
         <span>room: ${escapeHtml(log.roomId)}</span>
+        ${log.sourceEventId ? renderCompactIdMeta("source event", [log.sourceEventId], 1) : ""}
         <span>${escapeHtml(log.artifactType)}: ${escapeHtml(log.artifactId)}</span>
         <span>stored: ${escapeHtml(log.storage)}</span>
       </div>
@@ -1603,6 +1664,7 @@ function renderSituationCard(card) {
         <span>card: ${escapeHtml(card.id)}</span>
         <span>room: ${escapeHtml(card.roomId)}</span>
         ${card.workOrderId ? `<span>work order: ${escapeHtml(card.workOrderId)}</span>` : ""}
+        ${card.sourceEventId ? renderCompactIdMeta("source event", [card.sourceEventId], 1) : ""}
         ${card.agentId ? `<span>agent: ${escapeHtml(card.agentId)}</span>` : ""}
         ${card.caseId ? `<span>case: ${escapeHtml(card.caseId)}</span>` : ""}
         ${card.runId ? `<span>run: ${escapeHtml(card.runId)}</span>` : ""}
@@ -1631,6 +1693,7 @@ function renderSituationApproval(approval) {
       <div class="mini-meta">
         ${renderCompactIdMeta("approval", [approval.id], 1)}
         ${renderCompactIdMeta("work order", [approval.workOrderId], 1)}
+        ${approval.sourceEventId ? renderCompactIdMeta("source event", [approval.sourceEventId], 1) : ""}
         <span>agent: ${escapeHtml(approval.requestedByAgentId)}</span>
         <span>approver: ${escapeHtml(approval.approverRole)}</span>
         ${renderCompactIdMeta("trace", [approval.traceId], 1)}
@@ -1661,6 +1724,7 @@ function renderSituationWorkOrder(workOrder) {
       <p>${escapeHtml(workOrder.command)}</p>
       <div class="mini-meta">
         ${renderCompactIdMeta("work order", [workOrder.id], 1)}
+        ${workOrder.sourceEventId ? renderCompactIdMeta("source event", [workOrder.sourceEventId], 1) : ""}
         <span>room: ${escapeHtml(workOrder.roomId)}</span>
         ${workOrder.caseId ? `<span>case: ${escapeHtml(workOrder.caseId)}</span>` : ""}
         ${renderCompactIdMeta("trace", [workOrder.traceId], 1)}

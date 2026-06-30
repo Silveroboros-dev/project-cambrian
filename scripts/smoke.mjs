@@ -51,6 +51,7 @@ const actResults = GUIDED_DEMO_SCENARIO_ORDER.map((scenarioId, index) =>
 const agentParticipation = summarizeSituationAgentParticipation(store);
 assert.deepEqual(store.situationDemoConductor.completedActIds, GUIDED_DEMO_SCENARIO_ORDER);
 assert.equal(actResults.length, 5);
+assert.equal(store.situationSourceEvents.length, GUIDED_DEMO_SCENARIO_ORDER.length);
 assert.equal(store.situationDemoConductor.lastAct.actId, "weekly_control_audit");
 assert.equal(store.situationDemoConductor.lastAct.deltas.workOrders, 1);
 assert.match(store.situationDemoConductor.lastAct.cambrianContrast, /Reviews local logs/);
@@ -63,6 +64,10 @@ const routedCommand = postSituationMessage(store, {
 const situationMetrics = summarizeSituationMetrics(store);
 assert.equal(agentParticipation.length, 6);
 assert.equal(actResults.filter((result) => result.workOrder).length, 5);
+assert.ok(actResults.every((result) => result.sourceEvent));
+assert.ok(actResults.every((result) => result.workOrder.sourceEventId === result.sourceEvent.id));
+assert.ok(actResults.every((result) => result.cards.every((card) => card.sourceEventId === result.sourceEvent.id)));
+assert.ok(actResults.every((result) => store.situationEventLog.some((log) => log.eventType === "source_event_received" && log.sourceEventId === result.sourceEvent.id)));
 assert.ok(store.workOrders.length >= 5);
 assert.equal(store.approvalRequests.filter((approval) => approval.status === "pending").length, 3);
 assert.ok(store.situationCards.some((card) => card.type === "weekly_audit_due"));
@@ -85,12 +90,15 @@ const snapshot = createSituationDemoSnapshot(store, {
   scenarioWeek: 1,
   createdAt: "2026-06-30T00:20:00.000Z"
 });
+assert.equal(snapshot.payload.situationSourceEvents.length, store.situationSourceEvents.length);
 const snapshotTarget = createInitialStore();
 const importedSnapshot = importSituationDemoSnapshot(snapshotTarget, JSON.stringify(snapshot), "2026-07-07T00:00:00.000Z");
 assert.equal(importedSnapshot.valid, true, importedSnapshot.errors.join(" "));
+assert.equal(snapshotTarget.situationSourceEvents.length, store.situationSourceEvents.length);
 const weekTwo = runWeekTwoContinuityScenario(snapshotTarget, "2026-07-07T00:10:00.000Z");
 assert.equal(weekTwo.scenarioWeek, 2);
 assert.ok(snapshotTarget.situationCards.some((card) => card.type === "week_two_prior_log_review"));
+assert.ok(snapshotTarget.situationCards.some((card) => card.summary.includes("source event")));
 
 const validationResults = sampleCaseImports.map((sample) => runValidationSample(sample));
 assert.equal(validationResults.length >= 2, true);

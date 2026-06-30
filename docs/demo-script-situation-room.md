@@ -71,6 +71,7 @@ Click `Reset demo state`, then run the numbered `Demo conductor` acts one by one
 Expected result:
 
 - each act opens the relevant room with the `Cards` artifact pack selected;
+- each act first shows an `Event Source` panel naming the synthetic source, trigger, source actor, payload preview, expected agents, `sourceEventId`, and local-only adapter boundary;
 - each act updates `Created this act` with cards, work orders, approvals, and local log counts;
 - each act shows why a generic chatbot is weaker than the governed Cambrian agent loop;
 - all six active agents show participation;
@@ -80,7 +81,7 @@ Expected result:
 
 Say:
 
-> We are not asking a chatbot a question. We are walking through operating events. Each click creates governed artifacts: cards, work orders, approval gates, and logs. The contrast line shows what a generic chatbot would miss.
+> We are not asking a chatbot a question. We are walking through operating events. Each click starts with a visible synthetic event source, then creates governed artifacts: cards, work orders, approval gates, and logs. The contrast line shows what a generic chatbot would miss.
 
 ### 3. Inspect Cards, Work Orders, Approvals
 
@@ -104,6 +105,7 @@ Show on expanded cards:
 - `cardId`;
 - `roomId`;
 - `workOrderId`;
+- `sourceEventId`;
 - `agentId`;
 - `caseId`;
 - `traceId`;
@@ -218,9 +220,9 @@ One week later:
 
 Expected result:
 
-- prior room messages, cards, work orders, approvals, validation records, and local logs are restored;
+- prior room messages, source events, cards, work orders, approvals, validation records, and local logs are restored;
 - `A-CAD-001` creates a week-two continuity work order;
-- the week-two cards summarize prior log count, unresolved approvals, blocked work, and next business ask;
+- the week-two cards summarize prior source-event count, prior log count, unresolved approvals, blocked work, and next business ask;
 - no database, backend, or external connector is used.
 
 Say:

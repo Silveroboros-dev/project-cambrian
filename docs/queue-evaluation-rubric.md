@@ -22,7 +22,7 @@ Score each criterion from 1 to 5.
 | Measurable admin time | Hard to measure before/after work. | Clear prep time, handoffs, rework, or response-time metrics. |
 | Compliance/audit need | Little need for traceability. | Decisions require evidence, approval, and audit trail. |
 | Data accessibility | Data is inaccessible or highly sensitive. | Anonymized packets can be shared cheaply. |
-| Ruslan credibility | Weak domain credibility. | Strong finance/operator/regulatory credibility. |
+| Founder/operator credibility | Weak domain credibility. | Strong finance/operator/regulatory credibility. |
 | Acquisition fit | No obvious succession or roll-up path. | Fragmented market with succession pressure. |
 | Regulatory drag | Heavy licensing or liability blocks pilots. | Governance matters, but controlled pilots are feasible. |
 | Demo feasibility | Demo requires integrations or production data. | Manual packets can prove value locally. |
@@ -58,4 +58,3 @@ These are working hypotheses, not market research.
 For investor or owner conversations, use this rubric to explain discipline:
 
 > We are not chasing every AI vertical. We score candidate queues by document density, recurrence, owner dependency, measurable admin burden, compliance need, data access, our credibility, acquisition fit, regulatory drag, and demo feasibility. Treuhand is active because it scores well and can be validated locally before any acquisition story.
-

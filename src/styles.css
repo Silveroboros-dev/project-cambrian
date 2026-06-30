@@ -309,6 +309,53 @@ h4 {
   background: rgba(36, 89, 76, 0.05);
 }
 
+.event-source-panel {
+  margin-bottom: 12px;
+  padding: 10px;
+  border: 1px solid rgba(36, 89, 76, 0.28);
+  border-radius: 6px;
+  background: #fff;
+}
+
+.event-source-panel > p {
+  margin: 8px 0 0;
+  line-height: 1.42;
+}
+
+.source-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.source-detail-grid > div {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-muted);
+}
+
+.source-detail-grid strong,
+.source-detail-grid span {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.source-detail-grid strong {
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+.source-detail-grid span {
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
 .demo-act-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -1084,6 +1131,7 @@ tr:last-child td {
     .demo-act-grid,
     .created-now-grid,
     .contrast-grid,
+    .source-detail-grid,
     .situation-input,
     .split,
     .result-columns {

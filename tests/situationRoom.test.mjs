@@ -32,7 +32,7 @@ test("Situation Room contract and UI entry point exist", async () => {
   const styles = await readFile("src/styles.css", "utf8");
   const situationRoomSource = await readFile("src/situationRoom.js", "utf8");
 
-  for (let index = 1; index <= 28; index += 1) {
+  for (let index = 1; index <= 31; index += 1) {
     assert.match(contract, new RegExp(`AC-SR-${index}:`));
   }
 
@@ -42,7 +42,9 @@ test("Situation Room contract and UI entry point exist", async () => {
   assert.match(contract, /@treu/);
   assert.match(contract, /No External Side Effects/);
   assert.match(contract, /Demo Conductor/);
+  assert.match(contract, /Source Event Model/);
   assert.match(contract, /synthetic_local/);
+  assert.match(demoScript, /Event Source/);
   assert.match(demoScript, /Demo conductor|Reset demo state/);
   assert.match(demoScript, /3-5 anonymized Treuhand cases/);
   assert.match(html, /Situation Room/);
@@ -63,6 +65,9 @@ test("Situation Room contract and UI entry point exist", async () => {
   assert.match(app, /Artifact packs/);
   assert.match(app, /packed-event/);
   assert.match(app, /packed-log/);
+  assert.match(app, /Event Source/);
+  assert.match(app, /source-detail-grid/);
+  assert.match(app, /sourceEventId/);
   assert.match(app, /Situation Room metrics/);
   assert.match(app, /Save demo snapshot/);
   assert.match(app, /Advance one week/);
@@ -73,8 +78,11 @@ test("Situation Room contract and UI entry point exist", async () => {
   assert.match(styles, /grid-template-columns: 1fr;/);
   assert.match(styles, /word-break: normal;/);
   assert.match(styles, /id-chip/);
+  assert.match(styles, /event-source-panel/);
   assert.doesNotMatch(app, /<details class="agent-status-card"/);
   assert.match(situationRoomSource, /runSituationDemoAct/);
+  assert.match(situationRoomSource, /situationSourceEvents/);
+  assert.match(situationRoomSource, /source_event_received/);
   assert.match(situationRoomSource, /actRecordsById/);
   assert.match(situationRoomSource, /manual_tag_reused_demo_act/);
   assert.match(situationRoomSource, /chatbotContrast/);
@@ -88,6 +96,7 @@ test("initial store seeds Situation Room rooms and supported agent tags", () => 
   assert.equal(store.activeSituationRoomId, "room_case_march_2026");
   assert.equal(store.expandedSituationAgentId, null);
   assert.deepEqual(store.situationDemoConductor.completedActIds, []);
+  assert.deepEqual(store.situationSourceEvents, []);
   assert.equal(ACTIVE_SITUATION_AGENTS.length, 6);
   assert.deepEqual(SITUATION_ARTIFACT_PACKS.map((pack) => pack.id), ["cards", "events", "work_orders", "approvals", "logs"]);
   assert.equal(store.activeSituationPack, "cards");
@@ -146,10 +155,15 @@ test("demo conductor acts create visible current-run deltas", () => {
   assert.equal(store.situationDemoConductor.lastAct.deltas.cards, result.cards.length);
   assert.equal(store.situationDemoConductor.lastAct.deltas.workOrders, 1);
   assert.equal(store.situationDemoConductor.lastAct.deltas.approvals, 0);
-  assert.equal(store.situationDemoConductor.lastAct.deltas.logs, 1);
+  assert.equal(store.situationDemoConductor.lastAct.deltas.logs, 2);
+  assert.equal(store.situationDemoConductor.lastAct.sourceEventId, result.sourceEvent.id);
+  assert.equal(store.situationDemoConductor.lastAct.sourceEvent.triggerType, "external_llm_upload_attempt");
+  assert.equal(result.workOrder.sourceEventId, result.sourceEvent.id);
+  assert.ok(result.cards.every((card) => card.sourceEventId === result.sourceEvent.id));
   assert.match(store.situationDemoConductor.lastAct.chatbotContrast, /pasted/);
   assert.match(store.situationDemoConductor.lastAct.cambrianContrast, /Stops the risky upload/);
   assert.equal(store.situationLastAction.status, "demo_act_completed");
+  assert.equal(store.situationLastAction.sourceEventId, result.sourceEvent.id);
   assert.equal(store.activeSituationRoomId, "room_security");
   assert.equal(store.activeSituationPack, "cards");
 });
@@ -186,6 +200,8 @@ test("guided demo runs all five scenarios and creates a recap from clean local s
   assert.equal(report.truthLabel, "synthetic_local");
   assert.match(report.recapSummary, /6 active agents shown/);
   assert.match(report.recapSummary, /no external side effects/);
+  assert.equal(store.situationSourceEvents.length, GUIDED_DEMO_SCENARIO_ORDER.length);
+  assert.equal(new Set(store.situationSourceEvents.map((event) => event.scenarioId)).size, GUIDED_DEMO_SCENARIO_ORDER.length);
   assert.equal(store.activeSituationRoomId, "room_general_ops");
   assert.equal(store.activeSituationPack, "cards");
   assert.equal(store.situationLastAction.status, "guided_demo_completed");
@@ -308,6 +324,46 @@ test("scenario gallery creates cards and compatible local artifacts for all five
   assert.ok(store.approvalRequests.some((approval) => approval.actionType === "approve_operating_memory_candidate"));
 });
 
+test("scenario source events are local, honest, and linked to downstream artifacts", () => {
+  for (const [index, scenario] of SITUATION_ROOM_SCENARIOS.entries()) {
+    const store = createInitialStore();
+    const result = runSituationScenario(store, scenario.id, `2026-06-30T00:0${index}:00.000Z`);
+    const sourceEvent = result.sourceEvent;
+    const sourceLog = store.situationEventLog.find(
+      (log) => log.eventType === "source_event_received" && log.artifactId === sourceEvent.id
+    );
+    const sourceClaimText = [
+      sourceEvent.sourceKind,
+      sourceEvent.sourceLabel,
+      sourceEvent.triggerType,
+      sourceEvent.sourceActor,
+      sourceEvent.payloadTitle,
+      sourceEvent.payloadPreview
+    ].join(" ");
+
+    assert.equal(store.situationSourceEvents.length, 1);
+    assert.equal(store.situationSourceEvents[0].id, sourceEvent.id);
+    assert.equal(sourceEvent.sourceEventId, sourceEvent.id);
+    assert.equal(sourceEvent.scenarioId, scenario.id);
+    assert.equal(sourceEvent.roomId, scenario.roomId);
+    assert.equal(sourceEvent.caseId, store.activeCaseId);
+    assert.equal(sourceEvent.adapterMode, "synthetic_local");
+    assert.equal(sourceEvent.truthLabel, "synthetic_local");
+    assert.equal(sourceEvent.truthLabelText, "synthetic/local only");
+    assert.equal(sourceEvent.externalEffect, "none");
+    assert.deepEqual(sourceEvent.expectedAgentIds, scenario.expectedAgentIds);
+    assert.match(sourceEvent.adapterBoundary, /Simulated\/local/);
+    assert.doesNotMatch(sourceClaimText, /\breal Gmail\b|\bbrowser monitoring\b|\bIAM changes\b|\bSlack\b|\bDrive\b|\btelemetry backend\b|\bLLM call\b/i);
+    assert.ok(sourceLog);
+    assert.equal(sourceLog.artifactType, "source_event");
+    assert.equal(sourceLog.sourceEventId, sourceEvent.id);
+    assert.equal(result.workOrder.sourceEventId, sourceEvent.id);
+    assert.ok(result.cards.length > 0);
+    assert.ok(result.cards.every((card) => card.sourceEventId === sourceEvent.id));
+    assert.ok(result.approvalRequests.every((approval) => approval.sourceEventId === sourceEvent.id));
+  }
+});
+
 test("scenario cards carry identity fields and synthetic/local labels", () => {
   const store = createInitialStore();
   runGuidedSituationDemo(store, "2026-06-30T00:00:00.000Z");
@@ -320,6 +376,7 @@ test("scenario cards carry identity fields and synthetic/local labels", () => {
         card.cardId &&
         card.roomId &&
         card.workOrderId &&
+        card.sourceEventId &&
         card.traceId &&
         card.agentId &&
         card.truthLabel === "synthetic_local" &&
@@ -364,11 +421,12 @@ test("human approval gate resolves approval without granting hidden autonomy", (
       (card) =>
         card.type === "human_approval" &&
         card.approvalId === approval.id &&
+        card.sourceEventId === approval.sourceEventId &&
         card.summary.includes("no external action executed")
     )
   );
   assert.ok(store.situationCards.some((card) => card.approvalId === approval.id && card.approvalStatus === "approved"));
-  assert.ok(store.situationCards.some((card) => card.type === "agent_next_step_proposal" && card.sourceId === approval.id));
+  assert.ok(store.situationCards.some((card) => card.type === "agent_next_step_proposal" && card.sourceId === approval.id && card.sourceEventId === approval.sourceEventId));
   assert.equal(afterMetrics.reviewedApprovals, beforeMetrics.reviewedApprovals + 1);
   assert.equal(afterMetrics.reviewActions, beforeMetrics.reviewActions + 1);
   assert.ok(afterMetrics.logs > beforeMetrics.logs);
@@ -417,6 +475,8 @@ test("demo snapshots export and import versioned local continuity state", () => 
   assert.equal(snapshot.snapshotVersion, SITUATION_SNAPSHOT_VERSION);
   assert.equal(snapshot.sessionId, "session_demo_part_1");
   assert.equal(snapshot.scenarioWeek, 1);
+  assert.equal(snapshot.payload.situationSourceEvents.length, source.situationSourceEvents.length);
+  assert.ok(snapshot.payload.situationSourceEvents.length > 0);
   assert.ok(snapshot.payload.situationEventLog.length > 0);
   assert.ok(snapshot.payload.roomMessages.length > 0);
   assert.equal(source.situationSnapshotStatus.status, "ready");
@@ -429,6 +489,7 @@ test("demo snapshots export and import versioned local continuity state", () => 
   assert.equal(target.situationScenarioWeek, 1);
   assert.equal(target.situationCards.length, source.situationCards.length);
   assert.equal(target.workOrders.length, source.workOrders.length);
+  assert.equal(target.situationSourceEvents.length, source.situationSourceEvents.length);
   assert.ok(target.situationEventLog.some((log) => log.eventType === "demo_snapshot_imported"));
   assert.equal(importSituationDemoSnapshot(target, "{").valid, false);
   assert.equal(importSituationDemoSnapshot(target, { snapshotVersion: "wrong" }).valid, false);
@@ -438,14 +499,16 @@ test("week-two continuity scenario uses prior logs without backend persistence",
   const store = createInitialStore();
   runGuidedSituationDemo(store, "2026-06-30T00:00:00.000Z");
   const priorLogCount = store.situationEventLog.length;
+  const priorSourceEventCount = store.situationSourceEvents.length;
 
   const result = runWeekTwoContinuityScenario(store, "2026-07-07T00:00:00.000Z");
 
   assert.equal(result.scenarioWeek, 2);
   assert.equal(result.workOrder.status, "completed");
   assert.ok(result.cards.some((card) => card.type === "week_two_prior_log_review"));
+  assert.ok(result.cards.some((card) => card.summary.includes(`${priorSourceEventCount} source event`)));
   assert.ok(result.cards.some((card) => card.summary.includes(`${priorLogCount} prior local log record`)));
   assert.ok(store.situationEventLog.some((log) => log.eventType === "week_two_continuity_run"));
   assert.equal(store.activeSituationRoomId, "room_weekly_control");
-  assert.match(store.situationLastAction.summary, /continuity scenario reviewed/);
+  assert.match(store.situationLastAction.summary, /source event/);
 });
