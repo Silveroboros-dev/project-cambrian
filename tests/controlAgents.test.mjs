@@ -46,8 +46,12 @@ test("security agent surfaces prompt injection as a finding", () => {
   const ingestion = runDataIngestionAgent(caseRecord);
   const result = runSecurityAgent({ caseRecord, contextPackets: ingestion.contextPackets });
 
+  const taintedPacket = ingestion.contextPackets.find((packet) => packet.id === "ctx_ev_bad");
+  assert.equal(taintedPacket.taint.promptInjectionSuspected, true);
+  assert.equal(taintedPacket.taint.instructionFollowingForbidden, true);
   assert.ok(result.securityFindings.some((finding) => finding.severity === "high"));
   assert.ok(result.securityFindings.some((finding) => finding.summary.includes("ignore previous instructions")));
+  assert.ok(result.securityFindings.some((finding) => finding.taint?.promptInjectionSuspected));
   assert.ok(result.controlAgentOutputs.every((output) => output.agentCode === "A-SEC-001"));
 });
 

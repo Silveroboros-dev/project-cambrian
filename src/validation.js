@@ -1,6 +1,8 @@
 import { defaultChecklist, runTreuhandAgent } from "./agent.js";
+import { validatePrivacyForExport } from "./rules/securityRules.js";
 
 export const CASE_IMPORT_VERSION = "phase2.treuhand.case.v1";
+export const VALIDATION_PACKAGE_VERSION = "phase2.validation.package.v1";
 
 export const FAILURE_TAGS = [
   {
@@ -91,6 +93,39 @@ export function validateCaseImport(record) {
   }
 
   return { valid: errors.length === 0, errors };
+}
+
+export function parseCaseImportJson(jsonText) {
+  let parsed;
+  try {
+    parsed = JSON.parse(String(jsonText || "").trim());
+  } catch (error) {
+    return {
+      valid: false,
+      errors: [`Invalid JSON: ${error.message}.`],
+      record: null
+    };
+  }
+
+  const validation = validateCaseImport(parsed);
+  const privacy = validatePrivacyForExport(parsed);
+  const errors = [...validation.errors, ...privacy.issues.map((issue) => `Privacy check failed: ${issue.message}`)];
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    record: errors.length === 0 ? prepareManualCaseImport(parsed) : null
+  };
+}
+
+export function prepareManualCaseImport(record) {
+  const prepared = {
+    ...record,
+    sourceSystem: "manual_anonymized_packet"
+  };
+  delete prepared.reviewerRating;
+  delete prepared.traceAnnotations;
+  return prepared;
 }
 
 export function normalizeCaseImport(record, importedAt = new Date().toISOString()) {
@@ -200,6 +235,54 @@ export function createValidationRecord({
     createdAt,
     updatedAt: createdAt
   };
+}
+
+export function createValidationPackage({
+  caseRecord,
+  run,
+  validationRecord,
+  contextPackets = [],
+  securityFindings = [],
+  createdAt = new Date().toISOString()
+}) {
+  if (!caseRecord) {
+    throw new Error("Validation package requires a case.");
+  }
+  if (!run) {
+    throw new Error("Validation package requires an agent run.");
+  }
+  if (!validationRecord) {
+    throw new Error("Validation package requires a validation record.");
+  }
+
+  const memo =
+    validationRecord.memo ||
+    buildOperatingMemo({
+      caseRecord,
+      run,
+      validationRecord
+    });
+
+  return {
+    packageVersion: VALIDATION_PACKAGE_VERSION,
+    exportedAt: createdAt,
+    caseId: caseRecord.id,
+    runId: run.id,
+    validationRecordId: validationRecord.validationRecordId || validationRecord.id,
+    case: caseRecord,
+    run,
+    validationRecord: {
+      ...validationRecord,
+      memo
+    },
+    memo,
+    contextPackets: contextPackets.filter((packet) => packet.caseId === caseRecord.id),
+    securityFindings: securityFindings.filter((finding) => finding.caseId === caseRecord.id)
+  };
+}
+
+export function validateValidationPackagePrivacy(validationPackage) {
+  return validatePrivacyForExport(validationPackage);
 }
 
 export function runValidationSample(importRecord, createdAt = new Date().toISOString()) {

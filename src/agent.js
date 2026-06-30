@@ -1,3 +1,5 @@
+import { findPromptInjection } from "./rules/securityRules.js";
+
 export const AGENT_CODE = "A-TREU-001";
 
 export const agentBacklog = [
@@ -231,16 +233,6 @@ const documentRules = [
   }
 ];
 
-const promptInjectionPatterns = [
-  "ignore previous instructions",
-  "ignore all instructions",
-  "system prompt",
-  "developer message",
-  "do not tell the accountant",
-  "send this automatically",
-  "approve without review"
-];
-
 export function classifyEvidence(evidence) {
   const haystack = `${evidence.title || ""} ${evidence.content || ""}`.toLowerCase();
   let best = { type: "unknown", label: "Unknown document", score: 0, matches: [] };
@@ -331,7 +323,7 @@ export function detectEvidenceWarnings(evidence, classification, caseRecord) {
     });
   }
 
-  const injectionHit = promptInjectionPatterns.find((pattern) => lower.includes(pattern));
+  const injectionHit = findPromptInjection(lower);
   if (injectionHit) {
     warnings.push({
       severity: "high",

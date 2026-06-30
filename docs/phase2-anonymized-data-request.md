@@ -96,7 +96,10 @@ For each case, the prototype will test whether it can:
 - link claims to evidence IDs;
 - draft a client reminder that still requires human approval;
 - capture reviewer rating and failure tags;
-- produce a before/after operating memo.
+- produce a before/after operating memo;
+- export a local validation package for follow-up review.
+
+Preferred handoff format is a pasted `phase2.treuhand.case.v1` JSON packet, not production-system access or raw client files.
 
 ## Success Criteria
 
@@ -111,4 +114,3 @@ The first validation is useful only if the reviewer can answer:
 ## Important Boundary
 
 This is not production software. It does not send emails, file taxes, produce accounting conclusions, connect to systems, or use real customer data.
-

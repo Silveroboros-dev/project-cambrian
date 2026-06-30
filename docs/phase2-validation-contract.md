@@ -121,3 +121,19 @@ The deterministic classifier must recognize common Swiss Treuhand packet terms, 
 ### AC-P2-12: Fixture And Human Metrics Separation
 
 Metrics must separate `fixture_seed` validation records from `human_capture` validation records. Fixture replay can demonstrate workflow shape, but only human-captured reviewer sessions count as evidence of business value.
+
+### AC-P2-13: Local JSON Import
+
+The Validation surface must provide a local paste-JSON import flow. Invalid JSON or invalid `phase2.treuhand.case.v1` packets must produce explicit local errors and must not load or mutate the active case.
+
+### AC-P2-14: Validation Package Export
+
+After a case has an agent run and validation record, the Validation surface must export a local validation package containing `case`, `run`, `validationRecord`, and `memo`, scoped to the active `caseId` and latest `runId`.
+
+### AC-P2-15: Export Privacy Gate
+
+Validation package export must run a local privacy check and block export when the package contains emails, credential-like text, IBAN-shaped identifiers, or explicit non-anonymized private-party terms configured in the prototype.
+
+### AC-P2-16: Prompt-Injection Taint
+
+Context packets with prompt-injection text must carry a `taint` marker with `promptInjectionSuspected: true` and `instructionFollowingForbidden: true`. The security agent and validation package export must preserve that taint marker.

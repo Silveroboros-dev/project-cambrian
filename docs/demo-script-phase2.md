@@ -64,6 +64,7 @@ Click `Validation`.
 
 Show:
 
+- local paste-JSON import panel;
 - `Sample imports`;
 - `Validation records`;
 - active case ID;
@@ -77,6 +78,10 @@ Say:
 Also say:
 
 > Fixture records are labeled `fixture_seed`. Only reviewer-session records labeled `human_capture` count as evidence of business value.
+
+Also show:
+
+> Real reviewer packets are pasted as local JSON and validated before loading. Invalid JSON, missing fields, or privacy issues do not mutate the active case.
 
 ### 3. Run All Samples
 
@@ -127,7 +132,22 @@ Say:
 
 > This is the anti-demo-theater part. We capture not only whether the output looks good, but where it failed. The failure tags are what make the next product decision possible.
 
-### 6. Show Operating Memo
+### 6. Show Validation Package Export
+
+Show:
+
+- export requires an agent run;
+- export requires a saved `human_capture` validation record;
+- fixture-seeded records are blocked from export-as-proof;
+- export includes case, run, validation record, memo, context packets, and security findings;
+- privacy gate blocks emails, credential-like strings, IBAN-shaped identifiers, Swiss UID-shaped identifiers, and configured private-party terms;
+- prompt-injection taint remains visible on context packets and security findings.
+
+Say:
+
+> The package is the portable artifact for reviewer follow-up. It is still local JSON, not a production record. The privacy gate exists so we fail closed if pasted data is not properly anonymized.
+
+### 7. Show Operating Memo
 
 Show the memo.
 
@@ -146,7 +166,7 @@ Say:
 
 > This memo is the artifact we want after every validation case. If we cannot write this honestly after real cases, we should not pitch an acquisition thesis.
 
-### 7. Open Metrics
+### 8. Open Metrics
 
 Click `Metrics`.
 

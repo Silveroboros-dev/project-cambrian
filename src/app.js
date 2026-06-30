@@ -2,6 +2,7 @@ import { runTreuhandAgent } from "./agent.js";
 import {
   CONTROL_AGENT_CODES,
   mergeById,
+  normalizeContextPacketTaint,
   runAuthorizationAgent,
   runCadenceAgent,
   runDataIngestionAgent,
@@ -12,10 +13,13 @@ import { activeCase, addAuditEvent, loadStore, resetStore, saveStore } from "./s
 import {
   FAILURE_TAGS,
   buildOperatingMemo,
+  createValidationPackage,
   createValidationRecord,
   getCaseChecklist,
   normalizeCaseImport,
+  parseCaseImportJson,
   runValidationSample,
+  validateValidationPackagePrivacy,
   validateCaseImport
 } from "./validation.js";
 
@@ -66,6 +70,7 @@ function reconcileHarnessState() {
   const contextPackets = store.contextPackets.filter((packet) => packet.caseId === caseRecord.id);
   const ingestion = runDataIngestionAgent(caseRecord, contextPackets);
   store.contextPackets = mergeById(store.contextPackets, ingestion.contextPackets);
+  store.contextPackets = store.contextPackets.map(normalizeContextPacketTaint);
   store.controlAgentOutputs = mergeById(store.controlAgentOutputs, ingestion.controlAgentOutputs);
 
   const latestRun = latestRunForCase(caseRecord.id);
@@ -255,9 +260,10 @@ function renderValidation() {
   const caseRecord = activeCase(store);
   const latestRun = latestRunForCase(caseRecord.id);
   const validationRecords = store.validationRecords.filter((item) => item.caseId === caseRecord.id);
-  const latestRecord = validationRecords[0] || null;
+  const latestRecord = latestValidationRecordForCase(caseRecord.id);
   const baseline = latestRecord?.baseline || caseRecord.validation?.baseline || {};
   const checklist = getCaseChecklist(caseRecord);
+  const exportReady = Boolean(store.validationExportPackage?.caseId === caseRecord.id);
   const memo = latestRun
     ? buildOperatingMemo({
         caseRecord,
@@ -291,6 +297,14 @@ function renderValidation() {
       ${metricTile("Active case", caseRecord.id)}
       ${metricTile("Rating source", latestRecord?.reviewerRating?.ratingSource || "none")}
     </div>
+
+    <section class="subpanel">
+      <div class="subpanel-heading">
+        <h3>Paste anonymized case JSON</h3>
+        <span>local import</span>
+      </div>
+      ${renderValidationImportPanel()}
+    </section>
 
     <div class="split validation-split">
       <section class="subpanel">
@@ -336,9 +350,23 @@ function renderValidation() {
         ${memo ? `<pre class="memo-output">${escapeHtml(memo)}</pre>` : emptyState("Load a sample case and run the agent to generate the operating memo.")}
       </section>
     </div>
+
+    <section class="subpanel">
+      <div class="subpanel-heading">
+        <h3>Validation package export</h3>
+        <span>${exportReady ? "ready" : "not built"}</span>
+      </div>
+      ${renderValidationExportPanel(caseRecord, latestRun, latestRecord)}
+    </section>
   `;
 
   document.querySelector("#run-all-validation-samples").addEventListener("click", handleRunAllValidationSamples);
+  document.querySelector("#validation-import-form").addEventListener("submit", handleValidationImportSubmit);
+  document.querySelector("#build-validation-export").addEventListener("click", handleBuildValidationExport);
+  const clearExport = document.querySelector("#clear-validation-export");
+  if (clearExport) {
+    clearExport.addEventListener("click", handleClearValidationExport);
+  }
   document.querySelectorAll("[data-load-sample]").forEach((button) => {
     button.addEventListener("click", () => handleLoadSample(button.dataset.sampleCaseId));
   });
@@ -527,6 +555,38 @@ function handleEvidenceSubmit(event) {
   render();
 }
 
+function handleValidationImportSubmit(event) {
+  event.preventDefault();
+  const formData = new FormData(event.currentTarget);
+  const importText = String(formData.get("caseImportJson") || "");
+  const parsed = parseCaseImportJson(importText);
+
+  if (!parsed.valid) {
+    store.validationImportStatus = {
+      status: "error",
+      message: "Case import was not loaded.",
+      errors: parsed.errors
+    };
+    render();
+    return;
+  }
+
+  const caseRecord = normalizeCaseImport(parsed.record);
+  clearCaseArtifacts(caseRecord.id);
+  store.cases = [caseRecord, ...store.cases.filter((item) => item.id !== caseRecord.id)];
+  store.activeCaseId = caseRecord.id;
+  store.validationImportStatus = {
+    status: "loaded",
+    message: `${caseRecord.id} loaded as manual_anonymized_packet.`,
+    errors: [],
+    caseId: caseRecord.id
+  };
+  clearValidationExportState();
+  addAuditEvent(store, caseRecord.id, "phase2_manual_case_imported", "Loaded anonymized case JSON locally.");
+  reconcileHarnessState();
+  render();
+}
+
 function handleLoadSample(sampleCaseId) {
   const sample = store.validationCaseImports.find((item) => item.sampleCaseId === sampleCaseId);
   if (!sample) return;
@@ -535,6 +595,7 @@ function handleLoadSample(sampleCaseId) {
   clearCaseArtifacts(caseRecord.id);
   store.cases = [caseRecord, ...store.cases.filter((item) => item.id !== caseRecord.id)];
   store.activeCaseId = caseRecord.id;
+  clearValidationExportState();
   addAuditEvent(store, caseRecord.id, "phase2_case_imported", `Loaded anonymized sample case ${sampleCaseId}.`);
   reconcileHarnessState();
   render();
@@ -571,6 +632,7 @@ function handleRunAllValidationSamples() {
   if (results.length > 0) {
     store.activeCaseId = results[0].caseRecord.id;
   }
+  clearValidationExportState();
   reconcileHarnessState();
   render();
 }
@@ -603,6 +665,7 @@ function handleRunAgent() {
   };
 
   store.agentRuns.unshift(run);
+  clearValidationExportState();
   caseRecord.status = "needs_review";
   caseRecord.updatedAt = new Date().toISOString();
 
@@ -674,7 +737,72 @@ function handleValidationSubmit(event) {
   caseRecord.validation.reviewerRating = validationRecord.reviewerRating;
   caseRecord.validation.traceAnnotations = validationRecord.traceAnnotations;
   store.validationRecords = upsertById(store.validationRecords, [validationRecord]);
+  clearValidationExportState();
   addAuditEvent(store, caseRecord.id, "phase2_reviewer_capture", `Saved ${validationRecord.validationRecordId}.`);
+  render();
+}
+
+function handleBuildValidationExport() {
+  const caseRecord = activeCase(store);
+  const latestRun = latestRunForCase(caseRecord.id);
+  const latestRecord = latestValidationRecordForCase(caseRecord.id);
+
+  if (!latestRun || !latestRecord) {
+    store.validationExportPackage = null;
+    store.validationExportStatus = {
+      status: "error",
+      message: "Export requires an agent run and saved validation record.",
+      errors: ["Run the agent and save reviewer capture first."]
+    };
+    render();
+    return;
+  }
+
+  if (latestRecord.reviewerRating?.ratingSource !== "human_capture") {
+    store.validationExportPackage = null;
+    store.validationExportStatus = {
+      status: "error",
+      message: "Export requires human-captured reviewer evidence.",
+      errors: ["Fixture-seeded validation records cannot be exported as business-value proof."]
+    };
+    render();
+    return;
+  }
+
+  const validationPackage = createValidationPackage({
+    caseRecord,
+    run: latestRun,
+    validationRecord: latestRecord,
+    contextPackets: store.contextPackets,
+    securityFindings: store.securityFindings
+  });
+  const privacy = validateValidationPackagePrivacy(validationPackage);
+
+  if (!privacy.valid) {
+    store.validationExportPackage = null;
+    store.validationExportStatus = {
+      status: "error",
+      message: "Export blocked by local privacy gate.",
+      errors: privacy.issues.map((issue) => issue.message)
+    };
+    render();
+    return;
+  }
+
+  store.validationExportPackage = validationPackage;
+  store.validationExportStatus = {
+    status: "ready",
+    message: `${validationPackage.validationRecordId} ready for local copy/export.`,
+    errors: [],
+    caseId: caseRecord.id,
+    runId: latestRun.id
+  };
+  addAuditEvent(store, caseRecord.id, "phase2_validation_package_exported", `Built ${validationPackage.validationRecordId}.`);
+  render();
+}
+
+function handleClearValidationExport() {
+  clearValidationExportState();
   render();
 }
 
@@ -816,6 +944,62 @@ function renderSampleImport(sample) {
   `;
 }
 
+function renderValidationImportPanel() {
+  return `
+    <form id="validation-import-form" class="validation-form">
+      <label>
+        Phase 2 case JSON
+        <textarea name="caseImportJson" rows="8" placeholder='{"importVersion":"phase2.treuhand.case.v1","caseId":"case_anonymized_001",...}' required></textarea>
+      </label>
+      <button type="submit" class="primary-button" title="Validate and load anonymized case">Validate and load case</button>
+    </form>
+    ${renderValidationStatus(store.validationImportStatus)}
+  `;
+}
+
+function renderValidationExportPanel(caseRecord, latestRun, latestRecord) {
+  const packageJson =
+    store.validationExportPackage?.caseId === caseRecord.id
+      ? JSON.stringify(store.validationExportPackage, null, 2)
+      : "";
+  const canBuild = latestRun && latestRecord;
+  const source = latestRecord?.reviewerRating?.ratingSource || "none";
+
+  return `
+    <div class="summary-grid metric-grid">
+      ${metricTile("Case", caseRecord.id)}
+      ${metricTile("Run", latestRun ? latestRun.id : "none")}
+      ${metricTile("Validation", latestRecord ? latestRecord.validationRecordId : "none")}
+      ${metricTile("Rating source", source)}
+    </div>
+    <div class="button-row">
+      <button class="primary-button" id="build-validation-export" title="Build validation package" ${canBuild ? "" : "disabled"}>Build export package</button>
+      ${packageJson ? `<button class="secondary-button" id="clear-validation-export" title="Clear validation package output">Clear export</button>` : ""}
+    </div>
+    ${renderValidationStatus(store.validationExportStatus)}
+    ${
+      packageJson
+        ? `<label class="export-output-label">Export package JSON<textarea class="export-output" rows="14" readonly>${escapeHtml(packageJson)}</textarea></label>`
+        : emptyState("Save a human reviewer capture, then build a local validation package.")
+    }
+  `;
+}
+
+function renderValidationStatus(status) {
+  if (!status) return "";
+  const errors = status.errors?.length ? `<ul class="plain-list">${status.errors.map((error) => `<li>${escapeHtml(error)}</li>`).join("")}</ul>` : "";
+  return `
+    <div class="artifact-item ${status.status === "error" ? "severity-high" : ""}">
+      <div class="artifact-heading">
+        <strong>${escapeHtml(status.status)}</strong>
+        <span>${escapeHtml(status.caseId || status.runId || "local")}</span>
+      </div>
+      <p>${escapeHtml(status.message)}</p>
+      ${errors}
+    </div>
+  `;
+}
+
 function renderChecklistConfigItem(item) {
   return `
     <article class="artifact-item">
@@ -935,6 +1119,7 @@ function renderContextPacket(packet) {
         <span>evidence: ${escapeHtml(packet.evidence_ids.join(", "))}</span>
         <span>allowed: ${escapeHtml(packet.allowed_uses.join(", "))}</span>
         <span>forbidden: ${escapeHtml(packet.forbidden_uses.join(", "))}</span>
+        ${packet.taint?.promptInjectionSuspected ? `<span>taint: prompt-injection</span>` : ""}
       </div>
       ${packet.warnings.length > 0 ? `<p class="warning-copy">${escapeHtml(packet.warnings.join(" "))}</p>` : ""}
     </article>
@@ -992,6 +1177,7 @@ function renderSecurityFinding(item) {
       <div class="mini-meta">
         <span>${escapeHtml(item.id)}</span>
         <span>target: ${escapeHtml(item.targetId)}</span>
+        ${item.taint?.promptInjectionSuspected ? `<span>taint: prompt-injection</span>` : ""}
       </div>
       <p>${escapeHtml(item.summary)}</p>
     </article>
@@ -1085,6 +1271,12 @@ function latestRunForCase(caseId) {
   return store.agentRuns.find((run) => run.caseId === caseId);
 }
 
+function latestValidationRecordForCase(caseId) {
+  return store.validationRecords
+    .filter((record) => record.caseId === caseId)
+    .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0))[0] || null;
+}
+
 function clearCaseArtifacts(caseId) {
   store.contextPackets = store.contextPackets.filter((item) => item.caseId !== caseId);
   store.controlAgentOutputs = store.controlAgentOutputs.filter((item) => item.caseId !== caseId);
@@ -1099,6 +1291,11 @@ function clearCaseArtifacts(caseId) {
   store.reviewDecisions = store.reviewDecisions.filter((item) => item.caseId !== caseId);
   store.validationRecords = store.validationRecords.filter((item) => item.caseId !== caseId);
   store.auditEvents = store.auditEvents.filter((item) => item.caseId !== caseId);
+}
+
+function clearValidationExportState() {
+  store.validationExportPackage = null;
+  store.validationExportStatus = null;
 }
 
 function upsertById(existing = [], incoming = []) {

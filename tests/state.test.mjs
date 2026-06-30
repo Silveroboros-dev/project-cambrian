@@ -28,3 +28,11 @@ test("state migration labels legacy validation record rating sources", () => {
   assert.equal(shaped.validationRecords[0].reviewerRating.ratingSource, "fixture_seed");
   assert.equal(shaped.validationRecords[1].reviewerRating.ratingSource, "human_capture");
 });
+
+test("state shape includes local validation import and export surfaces", () => {
+  const shaped = ensureStoreShape({});
+
+  assert.equal(shaped.validationImportStatus, null);
+  assert.equal(shaped.validationExportStatus, null);
+  assert.equal(shaped.validationExportPackage, null);
+});

@@ -24,11 +24,13 @@ Commit or snapshot:
 1. Open app:
 2. Reset state:
 3. Open Validation:
-4. Run all samples:
-5. Inspect active sample:
-6. Inspect reviewer capture:
-7. Inspect operating memo:
-8. Inspect Metrics:
+4. Paste invalid JSON and confirm no case mutation:
+5. Paste valid anonymized JSON and load:
+6. Run agent:
+7. Save human reviewer capture:
+8. Build validation package export:
+9. Inspect operating memo:
+10. Inspect Metrics:
 ```
 
 ## Objections Captured
@@ -37,6 +39,8 @@ Commit or snapshot:
 |---|---|---|---|
 | Synthetic cases are not proof of value. | High | Demo uses bundled fixtures only. | Ask for 3-5 real anonymized cases. |
 | Fixture ratings can look like proof. | High | `Run all samples` creates `fixture_seed` records. | Confirm Metrics separates fixture records from `human_capture` records. |
+| Import/export can leak private data. | High | Reviewer packets are pasted manually. | Confirm invalid/private packets are blocked and export uses the privacy gate. |
+| Prompt-injection evidence could be treated as instruction later. | High | Source text can contain hostile instructions. | Confirm taint appears on context packets, security findings, and export package. |
 | Local storage is not production-ready. | Medium | Current runtime is `localStorage`. | Keep as explicit Phase 2 boundary; do not add DB yet. |
 | Checklist may be too firm-specific. | High | Sample B uses custom management export item. | Validate with real checklist variation. |
 | Reviewer capture may be too manual. | Medium | Ratings and failure tags require human entry. | Keep manual until repeated reviewer friction is observed. |
@@ -46,6 +50,9 @@ Commit or snapshot:
 - Did the demo make the validation loop clear?
 - Did any UI surface imply production readiness?
 - Were failure tags understandable?
+- Did import errors prevent active-case mutation?
+- Did package export stay blocked until `human_capture` reviewer evidence existed?
+- Were taint markers visible when source text contained hostile instructions?
 - Was the operating memo credible as a decision artifact?
 - What would block you from giving anonymized cases?
 - What was missing from the data request?

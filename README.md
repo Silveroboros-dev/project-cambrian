@@ -71,19 +71,23 @@ The prototype proves the operating loop, not production readiness:
 
 ## Phase 2 Validation Loop
 
-The local app includes a `Validation` tab for bundled anonymized Treuhand sample cases.
+The local app includes a `Validation` tab for bundled anonymized Treuhand sample cases and pasted anonymized reviewer packets.
 
 Use it to:
 
 1. load a bundled sample case;
-2. inspect the configured checklist and baseline manual time;
-3. run `A-TREU-001` from the Case tab;
-4. capture reviewer rating, failure tags, and trace annotation;
-5. read the generated before/after operating memo.
+2. paste and validate a `phase2.treuhand.case.v1` JSON packet;
+3. inspect the configured checklist and baseline manual time;
+4. run `A-TREU-001` from the Case tab;
+5. capture reviewer rating, failure tags, and trace annotation;
+6. read the generated before/after operating memo;
+7. build a local validation package export after human capture.
 
 The `Run all samples` action in the Validation tab replays the bundled sample cases locally and creates validation records and operating memos without external services.
 
 Bundled sample ratings are marked as `fixture_seed`. Reviewer-session ratings are marked as `human_capture`, and the metrics dashboard separates the two so demo fixtures do not count as proof of business value.
+
+The export package is local JSON containing `case`, `run`, `validationRecord`, `memo`, context packets, and security findings. Export is blocked by a local privacy gate if the package contains email addresses, credential-like text, IBAN-shaped identifiers, Swiss UID-shaped identifiers, or configured private-party terms.
 
 The bundled fixtures live in [src/phase2SampleCases.js](src/phase2SampleCases.js). The validation logic lives in [src/validation.js](src/validation.js).
 

@@ -358,6 +358,14 @@ textarea {
   resize: vertical;
 }
 
+.export-output {
+  min-height: 280px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  white-space: pre;
+}
+
 .evidence-list,
 .review-stack,
 .audit-list,

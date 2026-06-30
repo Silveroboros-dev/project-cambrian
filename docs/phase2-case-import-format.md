@@ -104,6 +104,26 @@ Agent checklist output must preserve `checklistItemId` so the validation record 
 
 Missing-item claims are supported by absence from the checked evidence inventory, not by a single positive evidence document.
 
+## Local Import And Export
+
+For real reviewer sessions, paste an anonymized JSON object in this format into the Validation surface. The app must validate the packet locally before loading it. Invalid JSON or missing required fields must produce explicit errors and must not change the active case.
+
+After an agent run and `human_capture` reviewer rating are saved, the app can export a local validation package:
+
+```json
+{
+  "packageVersion": "phase2.validation.package.v1",
+  "case": {},
+  "run": {},
+  "validationRecord": {},
+  "memo": "...",
+  "contextPackets": [],
+  "securityFindings": []
+}
+```
+
+The export package is blocked if a local privacy check finds personal emails, credential-like strings, IBAN-shaped identifiers, or configured private-party terms. Prompt-injection taint markers on context packets must remain visible in the package.
+
 ## Failure Tags
 
 The validation workflow uses these exact diagnostic tags:

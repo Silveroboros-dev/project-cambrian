@@ -55,6 +55,9 @@ export function ensureStoreShape(store) {
   shaped.validationCaseImports = sampleCaseImports;
   shaped.validationRecords ||= [];
   shaped.validationRecords = shaped.validationRecords.map(normalizeValidationRecordShape);
+  shaped.validationImportStatus ||= null;
+  shaped.validationExportStatus ||= null;
+  shaped.validationExportPackage ||= null;
   shaped.agentRuns ||= [];
   shaped.recommendations ||= [];
   shaped.reviewDecisions ||= [];
