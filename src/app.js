@@ -24,11 +24,19 @@ import {
   validateValidationPackagePrivacy,
   validateCaseImport
 } from "./validation.js";
+import {
+  AGENT_TAGS,
+  SITUATION_ROOM_SCENARIOS,
+  postSituationMessage,
+  resolveSituationApproval,
+  runSituationScenario
+} from "./situationRoom.js";
 
 let store = loadStore();
 
 const views = {
   workspace: document.querySelector("#workspace-view"),
+  situation: document.querySelector("#situation-view"),
   context: document.querySelector("#context-view"),
   controls: document.querySelector("#controls-view"),
   validation: document.querySelector("#validation-view"),
@@ -56,6 +64,7 @@ function setView(viewName) {
 function render() {
   reconcileHarnessState();
   renderWorkspace();
+  renderSituationRoom();
   renderContext();
   renderControls();
   renderValidation();
@@ -179,6 +188,101 @@ function renderWorkspace() {
     render();
   });
   document.querySelector("#evidence-form").addEventListener("submit", handleEvidenceSubmit);
+}
+
+function renderSituationRoom() {
+  const rooms = store.situationRooms || [];
+  const activeRoom = rooms.find((room) => room.id === store.activeSituationRoomId) || rooms[0];
+  const roomId = activeRoom?.id;
+  const roomCards = store.situationCards.filter((card) => card.roomId === roomId);
+  const roomMessages = store.roomMessages.filter((message) => message.roomId === roomId);
+  const roomWorkOrders = store.workOrders.filter((workOrder) => workOrder.roomId === roomId);
+  const roomApprovals = store.approvalRequests.filter((approval) => approval.roomId === roomId);
+  const timeline = [...roomCards, ...roomMessages]
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+  views.situation.innerHTML = `
+    <div class="panel-header">
+      <div>
+        <p class="eyebrow">Situation Room</p>
+        <h2>${escapeHtml(activeRoom?.title || "Local operating room")}</h2>
+      </div>
+      <span class="status-pill">local synthetic scenarios</span>
+    </div>
+    <div class="summary-grid metric-grid">
+      ${metricTile("Rooms", String(rooms.length))}
+      ${metricTile("Cards", String(roomCards.length))}
+      ${metricTile("Work orders", String(roomWorkOrders.length))}
+      ${metricTile("Pending approvals", String(roomApprovals.filter((approval) => approval.status === "pending").length))}
+    </div>
+
+    <div class="situation-layout">
+      <aside class="subpanel room-list-panel">
+        <div class="subpanel-heading">
+          <h3>Rooms</h3>
+          <span>${rooms.length}</span>
+        </div>
+        <div class="room-list">
+          ${rooms.map((room) => renderRoomButton(room, activeRoom)).join("")}
+        </div>
+      </aside>
+
+      <section class="subpanel situation-main">
+        <div class="subpanel-heading">
+          <h3>Scenario gallery</h3>
+          <span>no external services</span>
+        </div>
+        <div class="button-row scenario-buttons">
+          ${SITUATION_ROOM_SCENARIOS.map(renderScenarioButton).join("")}
+        </div>
+        <form id="situation-message-form" class="validation-form situation-input">
+          <label>
+            Agent tag
+            <input name="situationMessage" placeholder="@treu run intake review" required />
+          </label>
+          <button type="submit" class="primary-button" title="Create tagged work order">Tag agent</button>
+        </form>
+        <div class="mini-meta">
+          <span>tags: ${escapeHtml(Object.keys(AGENT_TAGS).join(", "))}</span>
+        </div>
+        <div class="situation-timeline">
+          ${timeline.length === 0 ? emptyState("No messages or cards in this room yet.") : timeline.map(renderTimelineItem).join("")}
+        </div>
+      </section>
+
+      <aside class="subpanel situation-side">
+        <div class="subpanel-heading">
+          <h3>Pending approvals</h3>
+          <span>${roomApprovals.length}</span>
+        </div>
+        <div class="artifact-list compact-list">
+          ${roomApprovals.length === 0 ? emptyState("No approval requests in this room.") : roomApprovals.map(renderSituationApproval).join("")}
+        </div>
+        <div class="subpanel-heading stacked-heading">
+          <h3>Work orders</h3>
+          <span>${roomWorkOrders.length}</span>
+        </div>
+        <div class="artifact-list compact-list">
+          ${roomWorkOrders.length === 0 ? emptyState("Tag an agent or run a scenario to create work orders.") : roomWorkOrders.map(renderSituationWorkOrder).join("")}
+        </div>
+      </aside>
+    </div>
+  `;
+
+  document.querySelectorAll("[data-situation-room-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      store.activeSituationRoomId = button.dataset.situationRoomId;
+      render();
+    });
+  });
+  document.querySelectorAll("[data-situation-scenario-id]").forEach((button) => {
+    button.addEventListener("click", () => handleSituationScenario(button.dataset.situationScenarioId));
+  });
+  const situationForm = document.querySelector("#situation-message-form");
+  if (situationForm) situationForm.addEventListener("submit", handleSituationMessageSubmit);
+  document.querySelectorAll("[data-situation-approval-id]").forEach((button) => {
+    button.addEventListener("click", () => handleSituationApproval(button.dataset.situationApprovalId, button.dataset.situationApprovalDecision));
+  });
 }
 
 function renderContext() {
@@ -566,6 +670,31 @@ function handleEvidenceSubmit(event) {
   render();
 }
 
+function handleSituationScenario(scenarioId) {
+  runSituationScenario(store, scenarioId);
+  addAuditEvent(store, activeCase(store).id, "situation_scenario_clicked", `Ran ${scenarioId}.`);
+  render();
+}
+
+function handleSituationMessageSubmit(event) {
+  event.preventDefault();
+  const formData = new FormData(event.currentTarget);
+  const text = String(formData.get("situationMessage") || "").trim();
+  if (!text) return;
+  postSituationMessage(store, {
+    roomId: store.activeSituationRoomId,
+    text,
+    actorId: store.user?.id || "human_reviewer"
+  });
+  render();
+}
+
+function handleSituationApproval(approvalId, decision) {
+  resolveSituationApproval(store, approvalId, decision, store.user?.id || "human_reviewer");
+  addAuditEvent(store, activeCase(store).id, "situation_approval_decision", `${approvalId} ${decision}.`);
+  render();
+}
+
 function handleValidationImportSubmit(event) {
   event.preventDefault();
   const formData = new FormData(event.currentTarget);
@@ -863,6 +992,112 @@ function handleReview(recommendationId, decision) {
 function recordAuthorization(auth) {
   store.authorizationDecisions = mergeById(store.authorizationDecisions, [auth.authorizationDecision]);
   store.controlAgentOutputs = mergeById(store.controlAgentOutputs, [auth.controlAgentOutput]);
+}
+
+function renderRoomButton(room, activeRoom) {
+  const active = activeRoom?.id === room.id ? "is-active" : "";
+  return `
+    <button class="room-button ${active}" data-situation-room-id="${escapeHtml(room.id)}" title="${escapeHtml(room.title)}">
+      <strong>${escapeHtml(room.title)}</strong>
+      <span>${escapeHtml(room.type)}${room.caseId ? ` - ${escapeHtml(room.caseId)}` : ""}</span>
+    </button>
+  `;
+}
+
+function renderScenarioButton(scenario) {
+  return `
+    <button class="secondary-button" data-situation-scenario-id="${escapeHtml(scenario.id)}" title="${escapeHtml(scenario.label)}">
+      ${escapeHtml(scenario.label)}
+    </button>
+  `;
+}
+
+function renderTimelineItem(item) {
+  if (item.cardId) return renderSituationCard(item);
+  return renderRoomMessage(item);
+}
+
+function renderRoomMessage(message) {
+  return `
+    <article class="situation-card message-card">
+      <div class="artifact-heading">
+        <strong>${escapeHtml(message.actorId)}</strong>
+        <span>${escapeHtml(message.actorType)}</span>
+      </div>
+      <p>${escapeHtml(message.text)}</p>
+      <div class="mini-meta">
+        <span>${escapeHtml(message.id)}</span>
+        <span>${formatTime(message.createdAt)}</span>
+        ${message.mentions?.length ? `<span>mentions: ${escapeHtml(message.mentions.join(", "))}</span>` : ""}
+      </div>
+    </article>
+  `;
+}
+
+function renderSituationCard(card) {
+  return `
+    <article class="situation-card severity-${escapeHtml(card.severity)}">
+      <div class="artifact-heading">
+        <strong>${escapeHtml(card.title)}</strong>
+        <span>${escapeHtml(card.type)}</span>
+      </div>
+      <p>${escapeHtml(card.summary)}</p>
+      <div class="mini-meta">
+        <span>${escapeHtml(card.id)}</span>
+        ${card.agentId ? `<span>agent: ${escapeHtml(card.agentId)}</span>` : ""}
+        ${card.caseId ? `<span>case: ${escapeHtml(card.caseId)}</span>` : ""}
+        ${card.runId ? `<span>run: ${escapeHtml(card.runId)}</span>` : ""}
+        ${card.approvalId ? `<span>approval: ${escapeHtml(card.approvalId)}</span>` : ""}
+        <span>trace: ${escapeHtml(card.traceId)}</span>
+      </div>
+      ${card.evidenceIds?.length ? `<div class="mini-meta"><span>evidence: ${escapeHtml(card.evidenceIds.join(", "))}</span></div>` : ""}
+    </article>
+  `;
+}
+
+function renderSituationApproval(approval) {
+  return `
+    <article class="artifact-item">
+      <div class="artifact-heading">
+        <strong>${escapeHtml(approval.status)}</strong>
+        <span>${escapeHtml(approval.actionType)}</span>
+      </div>
+      <p>${escapeHtml(approval.rationale)}</p>
+      <div class="mini-meta">
+        <span>${escapeHtml(approval.id)}</span>
+        <span>agent: ${escapeHtml(approval.requestedByAgentId)}</span>
+        <span>approver: ${escapeHtml(approval.approverRole)}</span>
+      </div>
+      ${
+        approval.status === "pending"
+          ? `<div class="button-row">
+              <button class="primary-button" data-situation-approval-id="${escapeHtml(approval.id)}" data-situation-approval-decision="approved" title="Approve request">Approve</button>
+              <button class="danger-button" data-situation-approval-id="${escapeHtml(approval.id)}" data-situation-approval-decision="rejected" title="Reject request">Reject</button>
+            </div>`
+          : ""
+      }
+    </article>
+  `;
+}
+
+function renderSituationWorkOrder(workOrder) {
+  return `
+    <article class="artifact-item">
+      <div class="artifact-heading">
+        <strong>${escapeHtml(workOrder.agentId)}</strong>
+        <span>${escapeHtml(workOrder.status)}</span>
+      </div>
+      <p>${escapeHtml(workOrder.command)}</p>
+      <div class="mini-meta">
+        <span>${escapeHtml(workOrder.id)}</span>
+        ${workOrder.caseId ? `<span>case: ${escapeHtml(workOrder.caseId)}</span>` : ""}
+        <span>trace: ${escapeHtml(workOrder.traceId)}</span>
+      </div>
+      <ul class="plain-list compact-steps">
+        ${workOrder.stages.map((stage) => `<li>${escapeHtml(stage)}</li>`).join("")}
+      </ul>
+    </article>
+  `;
 }
 
 function renderEvidenceItem(item) {

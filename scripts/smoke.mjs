@@ -3,6 +3,7 @@ import { access, readFile } from "node:fs/promises";
 import { runTreuhandAgent } from "../src/agent.js";
 import { createInitialStore } from "../src/demoData.js";
 import { sampleCaseImports } from "../src/phase2SampleCases.js";
+import { runSituationScenario } from "../src/situationRoom.js";
 import { FAILURE_TAGS, runValidationSample } from "../src/validation.js";
 
 await Promise.all([
@@ -18,6 +19,7 @@ assert.match(html, /src\/app.js/);
 assert.match(html, /Context/);
 assert.match(html, /Controls/);
 assert.match(html, /Validation/);
+assert.match(html, /Situation/);
 
 const store = createInitialStore();
 const output = runTreuhandAgent(store.cases[0]);
@@ -32,6 +34,9 @@ assert.ok(store.controlAgentOutputs.some((item) => item.agentCode === "A-SEC-001
 assert.ok(store.controlAgentOutputs.some((item) => item.agentCode === "A-CAD-001"));
 assert.ok(store.validationCaseImports.length >= 2);
 assert.ok(FAILURE_TAGS.some((tag) => tag.id === "checklist_mismatch"));
+runSituationScenario(store, "weekly_control_audit", "2026-06-30T00:00:00.000Z");
+assert.ok(store.situationCards.some((card) => card.type === "weekly_audit_due"));
+assert.ok(store.cadenceNudges.some((nudge) => nudge.targetType === "weekly_control_audit"));
 
 const validationResults = sampleCaseImports.map((sample) => runValidationSample(sample));
 assert.equal(validationResults.length >= 2, true);

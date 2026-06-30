@@ -1,6 +1,7 @@
 import { agentBacklog } from "./agent.js";
 import { createInitialStore } from "./demoData.js";
 import { sampleCaseImports } from "./phase2SampleCases.js";
+import { createInitialSituationRoomState } from "./situationRoom.js";
 import { normalizeCaseSource } from "./validation.js";
 
 const STORAGE_KEY = "agentops-core-store-v1";
@@ -59,6 +60,14 @@ export function ensureStoreShape(store) {
   shaped.validationImportStatus ||= null;
   shaped.validationExportStatus ||= null;
   shaped.validationExportPackage ||= null;
+  const situationSeed = createInitialSituationRoomState(shaped.activeCaseId || shaped.cases?.[0]?.id);
+  shaped.situationRooms ||= situationSeed.situationRooms;
+  shaped.activeSituationRoomId ||= situationSeed.activeSituationRoomId;
+  shaped.roomMessages ||= situationSeed.roomMessages;
+  shaped.workOrders ||= [];
+  shaped.situationCards ||= [];
+  shaped.approvalRequests ||= [];
+  shaped.selectedSituationCardId ||= null;
   shaped.agentRuns ||= [];
   shaped.recommendations ||= [];
   shaped.reviewDecisions ||= [];

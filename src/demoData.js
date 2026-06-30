@@ -6,6 +6,7 @@ import {
   runSecurityAgent
 } from "./controlAgents.js";
 import { sampleCaseImports } from "./phase2SampleCases.js";
+import { createInitialSituationRoomState } from "./situationRoom.js";
 
 export function createInitialStore() {
   const caseId = "case_demo_march_2026";
@@ -48,6 +49,7 @@ export function createInitialStore() {
   const ingestion = runDataIngestionAgent(demoCase, [], now);
   const security = runSecurityAgent({ caseRecord: demoCase, contextPackets: ingestion.contextPackets, createdAt: now });
   const cadence = runCadenceAgent({ caseRecord: demoCase, pendingRecommendations: [], createdAt: now });
+  const situationRoomState = createInitialSituationRoomState(caseId, now);
 
   return {
     tenant: {
@@ -77,6 +79,7 @@ export function createInitialStore() {
     handoffRequests: [],
     validationCaseImports: sampleCaseImports,
     validationRecords: [],
+    ...situationRoomState,
     agentRuns: [],
     recommendations: [],
     reviewDecisions: [],

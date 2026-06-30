@@ -58,6 +58,7 @@ The prototype proves the operating loop, not production readiness:
 - [Working spec](docs/agentops-core-working-spec.md): current product contract for the meta-harness direction, context packets, handoffs, gap analysis, memory, and implementation sequence.
 - [Harness UI contract](docs/harness-ui-contract.md): acceptance criteria and data-binding rules for context/control-agent surfaces.
 - [Phase 2 validation contract](docs/phase2-validation-contract.md): acceptance criteria and identity/mutation rules for the Treuhand validation kit.
+- [Situation Room contract](docs/situation-room-contract.md): local agent-tag, work-order, scenario-card, approval, and audit rules for the six-agent control loop.
 - [Phase 2 case import format](docs/phase2-case-import-format.md): versioned anonymized case format for local validation.
 - [Phase 2 demo script](docs/demo-script-phase2.md): stakeholder click path, talk track, expected questions, and next-step proposal.
 - [Phase 2 anonymized data request](docs/phase2-anonymized-data-request.md): one-page request for 3-5 friendly reviewer cases.
@@ -90,6 +91,14 @@ Bundled sample ratings are marked as `fixture_seed`. Reviewer-session ratings ar
 The export package is local JSON containing `case`, `run`, `validationRecord`, `memo`, context packets, and security findings. Export is blocked by a local privacy gate if the package contains email addresses, credential-like text, IBAN-shaped identifiers, Swiss UID-shaped identifiers, or configured private-party terms.
 
 The bundled fixtures live in [src/phase2SampleCases.js](src/phase2SampleCases.js). The validation logic lives in [src/validation.js](src/validation.js).
+
+## Situation Room Prototype
+
+The local app includes a `Situation` tab for synthetic operating scenarios. It shows how the active Treuhand workflow agent and five control agents can be tagged into a shared room as governed work orders.
+
+Use it to run local-only scenarios for inbound email intake, confidential upload attempt, employee onboarding, agent handoff gap, and weekly control audit. Each scenario creates typed event cards, approval gates, and compatible local artifacts such as context packets, security findings, authorization decisions, gap findings, cadence nudges, and audit events.
+
+This is not a Slack, Gmail, browser-monitoring, IAM, or external-agent integration. It is a local prototype of the operating model.
 
 ## Fail-Fast Validation
 

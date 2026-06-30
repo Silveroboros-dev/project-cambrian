@@ -262,6 +262,83 @@ h4 {
   margin-top: 14px;
 }
 
+.situation-layout {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.7fr) minmax(0, 1.8fr) minmax(220px, 0.9fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.room-list,
+.situation-timeline {
+  display: grid;
+  gap: 10px;
+}
+
+.room-button {
+  width: 100%;
+  min-height: 68px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+  background: var(--surface-muted);
+  color: var(--text);
+  text-align: left;
+}
+
+.room-button.is-active {
+  border-color: var(--accent);
+  background: rgba(36, 89, 76, 0.08);
+}
+
+.room-button strong,
+.room-button span {
+  display: block;
+}
+
+.room-button span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.scenario-buttons {
+  margin-bottom: 12px;
+}
+
+.situation-input {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+.situation-card {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-muted);
+}
+
+.message-card {
+  background: #fff;
+}
+
+.severity-warning {
+  border-color: rgba(154, 106, 23, 0.45);
+}
+
+.severity-info {
+  border-color: var(--border);
+}
+
+.stacked-heading {
+  margin-top: 18px;
+}
+
+.compact-steps {
+  margin-top: 8px;
+  font-size: 0.82rem;
+}
+
 .two-col-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -551,11 +628,13 @@ tr:last-child td {
 
   .summary-grid,
   .run-summary,
-  .control-grid,
-  .two-col-grid,
-  .tag-grid,
-  .split,
-  .result-columns {
+    .control-grid,
+    .two-col-grid,
+    .tag-grid,
+    .situation-layout,
+    .situation-input,
+    .split,
+    .result-columns {
     grid-template-columns: 1fr;
   }
 }
