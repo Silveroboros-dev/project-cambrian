@@ -1,0 +1,10 @@
+.DS_Store
+node_modules/
+coverage/
+.env
+.env.*
+*.log
+dist/
+build/
+.cache/
+snapshots/

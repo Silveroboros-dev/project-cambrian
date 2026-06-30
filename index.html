@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AgentOps Core</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="topbar" aria-label="Application status">
+        <div>
+          <p class="eyebrow">AgentOps Core</p>
+          <h1>Treuhand document intake cockpit</h1>
+        </div>
+        <div class="status-strip">
+          <span class="status-pill">Local prototype</span>
+          <span class="status-pill">No LLM</span>
+          <span class="status-pill">Human approval required</span>
+        </div>
+      </section>
+
+      <section class="layout">
+        <nav class="rail" aria-label="Primary">
+          <button class="rail-button is-active" data-view="workspace" title="Case workspace">
+            <span>Case</span>
+          </button>
+          <button class="rail-button" data-view="context" title="Context packets">
+            <span>Context</span>
+          </button>
+          <button class="rail-button" data-view="controls" title="Control agents">
+            <span>Controls</span>
+          </button>
+          <button class="rail-button" data-view="agents" title="Agent log">
+            <span>Agents</span>
+          </button>
+          <button class="rail-button" data-view="review" title="Review queue">
+            <span>Review</span>
+          </button>
+          <button class="rail-button" data-view="metrics" title="Metrics">
+            <span>Metrics</span>
+          </button>
+        </nav>
+
+        <section class="workspace">
+          <section class="panel view is-active" id="workspace-view" aria-label="Case workspace"></section>
+          <section class="panel view" id="context-view" aria-label="Context packets"></section>
+          <section class="panel view" id="controls-view" aria-label="Control agents"></section>
+          <section class="panel view" id="agents-view" aria-label="Agent log"></section>
+          <section class="panel view" id="review-view" aria-label="Review queue"></section>
+          <section class="panel view" id="metrics-view" aria-label="Metrics"></section>
+        </section>
+      </section>
+    </main>
+
+    <script type="module" src="./src/app.js"></script>
+  </body>
+</html>

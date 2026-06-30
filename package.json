@@ -1,0 +1,12 @@
+{
+  "name": "agentops-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Zero-install Treuhand workflow-agent prototype for AgentOps Core.",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "serve": "python3 -m http.server 5173"
+  }
+}
