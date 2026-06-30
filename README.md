@@ -55,9 +55,10 @@ The prototype proves the operating loop, not production readiness:
 
 ## Project Specs
 
-- [Working spec](docs/agentops-core-working-spec.md): current product contract for the meta-harness direction, context packets, handoffs, coordination auditor, memory, and implementation sequence.
+- [Working spec](docs/agentops-core-working-spec.md): current product contract for the meta-harness direction, context packets, handoffs, gap analysis, memory, and implementation sequence.
 - [Harness UI contract](docs/harness-ui-contract.md): acceptance criteria and data-binding rules for context/control-agent surfaces.
 - [First slice](docs/first-slice.md): narrow Treuhand validation plan.
+- [Operator acquisition thesis](docs/operator-acquisition-thesis.md): strategic boundary for the future acquisition or holding-company option.
 - [Original thesis](ai_native_operating_layer_agent_spec.md): broader strategic source document.
 
 ## Fail-Fast Validation
@@ -79,11 +80,13 @@ Pass condition for the first stakeholder demo:
 - all material claims linked to evidence IDs;
 - every client-facing draft requires human approval;
 - average manual prep time plausibly reduced by 20% or more;
-- reviewer says the output would save time in a real workflow.
+- reviewer says the output would save time in a real workflow;
+- workflow owner would use the process again on another case.
 
 Fail condition:
 
 - reviewer cannot trust the checklist;
 - evidence links are too weak;
 - output creates more review burden than it removes;
-- anonymized data cannot be obtained.
+- anonymized data cannot be obtained;
+- the story depends on acquisition/fund formation before operating proof exists.

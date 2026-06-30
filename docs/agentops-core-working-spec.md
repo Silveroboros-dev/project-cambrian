@@ -23,6 +23,22 @@ High-level objective:
 
 This means the product should not optimize for being the most advanced agentic system in the world. It should optimize for visible value under obvious tradeoffs: cost vs value, latency vs accuracy, recall vs precision, autonomy vs control, integration speed vs governance, and memory utility vs contamination.
 
+### 1.1 Strategic Boundary
+
+The broader strategic thesis may become an operator-led acquisition or holding-company project for Swiss service SMEs, but this repo should not start there.
+
+Phase 2 should prove an AI operating edge before any fund, holding-company, or acquisition narrative is advanced. The first external story should be:
+
+> We are validating whether controlled workflow agents can reduce manual work, owner dependency, handoff friction, and reporting burden in Swiss service SMEs. If that operating proof is real, acquisitions or co-investments can be considered deal by deal.
+
+This boundary prevents three common errors:
+
+- pitching a capital vehicle before there is operating evidence;
+- mixing Treuhand, wealth, treasury, cleaning, crypto, and payments into one unfocused market;
+- overclaiming AI margin transformation instead of showing measured before/after workflow improvement.
+
+The strategic companion document is [Operator Acquisition Thesis](operator-acquisition-thesis.md). It is downstream of the product proof, not a substitute for it.
+
 ## 2. Operating Requirements and Tradeoff Tests
 
 The manifesto matters, but it must be expressed as requirements an evaluator can test. Every principle below has a measurable behavior, a target, and an accepted tradeoff.
@@ -692,6 +708,34 @@ Add:
 - trace annotation;
 - failure reason tags;
 - baseline time capture.
+
+Phase 2 must produce a before/after operating memo rather than a larger architecture.
+
+Minimum evidence:
+
+- 10-20 anonymized Treuhand/accounting cases;
+- current manual prep time per case;
+- current checklist and human missing-item baseline;
+- reviewer rating for each agent output;
+- evidence IDs for material claims;
+- preparation time saved or review burden created;
+- failure tags for wrong classification, weak evidence, missing context, noisy gap finding, unsafe draft, and checklist mismatch.
+
+Phase 2 pass condition:
+
+- reviewer trusts the checklist and evidence links;
+- average manual prep time is plausibly reduced by at least 20%;
+- all client-facing outputs remain review-gated;
+- workflow owner says the system would be used again;
+- at least one owner/operator is willing to discuss a pilot or workflow audit.
+
+Phase 2 fail or narrow condition:
+
+- anonymized data cannot be obtained;
+- evidence links are too weak to review;
+- output creates more review burden than it removes;
+- firm-specific exceptions dominate the workflow;
+- useful operation requires production connectors before manual context packets prove value.
 
 ### Phase 3: Cross-Agent Gap Intelligence
 
