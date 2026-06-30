@@ -26,10 +26,19 @@ import {
 } from "./validation.js";
 import {
   AGENT_TAGS,
+  SITUATION_ARTIFACT_PACKS,
   SITUATION_ROOM_SCENARIOS,
+  appendAgentNextStepProposal,
+  exportSituationDemoSnapshot,
+  importSituationDemoSnapshot,
   postSituationMessage,
+  resolveAllDemoSafeApprovals,
   resolveSituationApproval,
-  runSituationScenario
+  runSituationDemoAct,
+  runWeekTwoContinuityScenario,
+  setSituationArtifactPack,
+  summarizeSituationMetrics,
+  summarizeSituationAgentParticipation
 } from "./situationRoom.js";
 
 let store = loadStore();
@@ -198,8 +207,14 @@ function renderSituationRoom() {
   const roomMessages = store.roomMessages.filter((message) => message.roomId === roomId);
   const roomWorkOrders = store.workOrders.filter((workOrder) => workOrder.roomId === roomId);
   const roomApprovals = store.approvalRequests.filter((approval) => approval.roomId === roomId);
-  const timeline = [...roomCards, ...roomMessages]
-    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  const roomLogs = (store.situationEventLog || []).filter((log) => log.roomId === roomId);
+  const allPendingApprovals = store.approvalRequests.filter((approval) => approval.status === "pending");
+  const agentParticipation = summarizeSituationAgentParticipation(store);
+  const expandedAgent = agentParticipation.find((agent) => agent.agentId === store.expandedSituationAgentId);
+  const conductor = store.situationDemoConductor || {};
+  const situationMetrics = summarizeSituationMetrics(store);
+  const activePack = store.activeSituationPack || "cards";
+  const chatMessages = [...roomMessages].sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
 
   views.situation.innerHTML = `
     <div class="panel-header">
@@ -207,13 +222,48 @@ function renderSituationRoom() {
         <p class="eyebrow">Situation Room</p>
         <h2>${escapeHtml(activeRoom?.title || "Local operating room")}</h2>
       </div>
-      <span class="status-pill">local synthetic scenarios</span>
+      <div class="button-row">
+        <button class="primary-button" id="reset-situation-demo-state" title="Reset local state before running the demo acts">Reset demo state</button>
+        <span class="status-pill">run numbered acts below</span>
+      </div>
     </div>
     <div class="summary-grid metric-grid">
       ${metricTile("Rooms", String(rooms.length))}
-      ${metricTile("Cards", String(roomCards.length))}
-      ${metricTile("Work orders", String(roomWorkOrders.length))}
-      ${metricTile("Pending approvals", String(roomApprovals.filter((approval) => approval.status === "pending").length))}
+      ${metricTile("Messages", String(situationMetrics.messages))}
+      ${metricTile("Cards", String(situationMetrics.cards))}
+      ${metricTile("Work orders", String(situationMetrics.workOrders))}
+      ${metricTile("Reviewed gates", String(situationMetrics.reviewedApprovals))}
+      ${metricTile("Local logs", String(situationMetrics.logs))}
+    </div>
+
+    <div class="split situation-overview">
+      <section class="subpanel demo-guide-panel">
+        <div class="subpanel-heading">
+          <h3>Demo guide</h3>
+          <span>4-6 minutes</span>
+        </div>
+        <ol class="demo-steps">
+          <li>State the boundary: local synthetic Situation Room, no external services.</li>
+          <li>Reset demo state, then run the numbered acts one by one.</li>
+          <li>Inspect typed cards, work orders, and pending approvals.</li>
+          <li>Approve or reject one local gate.</li>
+          <li>Open Validation.</li>
+          <li>Show memo, export rules, metrics separation.</li>
+          <li>Ask for 3-5 anonymized Treuhand cases.</li>
+        </ol>
+        ${renderDemoConductorProgress(conductor)}
+      </section>
+
+      <section class="subpanel agent-status-panel">
+        <div class="subpanel-heading">
+          <h3>Active agents</h3>
+          <span>six built agents</span>
+        </div>
+        <div class="agent-status-grid">
+          ${agentParticipation.map((agent) => renderSituationAgentStatus(agent, store.expandedSituationAgentId)).join("")}
+        </div>
+        ${expandedAgent ? renderSituationAgentOverlay(expandedAgent) : ""}
+      </section>
     </div>
 
     <div class="situation-layout">
@@ -229,24 +279,55 @@ function renderSituationRoom() {
 
       <section class="subpanel situation-main">
         <div class="subpanel-heading">
-          <h3>Scenario gallery</h3>
-          <span>no external services</span>
+          <h3>Demo conductor</h3>
+          <span>${escapeHtml(conductor.completedActIds?.length || 0)}/${SITUATION_ROOM_SCENARIOS.length} acts complete</span>
         </div>
-        <div class="button-row scenario-buttons">
-          ${SITUATION_ROOM_SCENARIOS.map(renderScenarioButton).join("")}
+        <div class="demo-act-grid">
+          ${SITUATION_ROOM_SCENARIOS.map((scenario, index) => renderScenarioButton(scenario, index, conductor)).join("")}
         </div>
+        ${renderDemoActResult(conductor.lastAct)}
         <form id="situation-message-form" class="validation-form situation-input">
           <label>
-            Agent tag
+            Manual agent tag (optional)
             <input name="situationMessage" placeholder="@treu run intake review" required />
           </label>
-          <button type="submit" class="primary-button" title="Create tagged work order">Tag agent</button>
+          <button type="submit" class="secondary-button" title="Create optional manual work order">Create manual work order</button>
         </form>
         <div class="mini-meta">
           <span>tags: ${escapeHtml(Object.keys(AGENT_TAGS).join(", "))}</span>
+          <span>logs: localStorage key ${escapeHtml(situationMetrics.localStorageKey)} / situationEventLog</span>
         </div>
-        <div class="situation-timeline">
-          ${timeline.length === 0 ? emptyState("No messages or cards in this room yet.") : timeline.map(renderTimelineItem).join("")}
+        ${store.situationLastAction ? renderSituationLastAction(store.situationLastAction) : ""}
+
+        <div class="room-chat-panel">
+          <div class="subpanel-heading compact-heading">
+            <h3>Room chat</h3>
+            <span>${chatMessages.length} retained</span>
+          </div>
+          <div class="room-chat-feed">
+            ${chatMessages.length === 0 ? emptyState("No chat messages in this room yet.") : chatMessages.map(renderRoomChatMessage).join("")}
+          </div>
+        </div>
+
+        <div class="artifact-pack-panel">
+          <div class="subpanel-heading compact-heading">
+            <h3>Artifact packs</h3>
+            <span>${escapeHtml(activePack)}</span>
+          </div>
+          <div class="button-row pack-buttons">
+            ${SITUATION_ARTIFACT_PACKS.map((pack) => renderPackButton(pack, activePack)).join("")}
+          </div>
+          <div class="packed-artifact-list">
+            ${renderSituationArtifactPack(activePack, { roomCards, roomWorkOrders, roomApprovals, roomLogs })}
+          </div>
+        </div>
+
+        <div class="snapshot-panel">
+          <div class="subpanel-heading compact-heading">
+            <h3>Demo persistence</h3>
+            <span>local snapshot</span>
+          </div>
+          ${renderSituationSnapshotPanel()}
         </div>
       </section>
 
@@ -255,6 +336,11 @@ function renderSituationRoom() {
           <h3>Pending approvals</h3>
           <span>${roomApprovals.length}</span>
         </div>
+        ${
+          allPendingApprovals.length > 0
+            ? `<button class="secondary-button full-width-button" id="approve-all-demo-approvals" title="Record local approvals for demo-safe approval gates">Approve all demo-safe approvals</button>`
+            : ""
+        }
         <div class="artifact-list compact-list">
           ${roomApprovals.length === 0 ? emptyState("No approval requests in this room.") : roomApprovals.map(renderSituationApproval).join("")}
         </div>
@@ -269,6 +355,14 @@ function renderSituationRoom() {
     </div>
   `;
 
+  document.querySelector("#reset-situation-demo-state").addEventListener("click", handleResetSituationDemoState);
+  const approveAll = document.querySelector("#approve-all-demo-approvals");
+  if (approveAll) approveAll.addEventListener("click", handleApproveAllDemoApprovals);
+  document.querySelectorAll("[data-situation-agent-id]").forEach((button) => {
+    button.addEventListener("click", () => handleSituationAgentToggle(button.dataset.situationAgentId));
+  });
+  const closeAgentOverlay = document.querySelector("#close-situation-agent-overlay");
+  if (closeAgentOverlay) closeAgentOverlay.addEventListener("click", handleSituationAgentOverlayClose);
   document.querySelectorAll("[data-situation-room-id]").forEach((button) => {
     button.addEventListener("click", () => {
       store.activeSituationRoomId = button.dataset.situationRoomId;
@@ -280,6 +374,18 @@ function renderSituationRoom() {
   });
   const situationForm = document.querySelector("#situation-message-form");
   if (situationForm) situationForm.addEventListener("submit", handleSituationMessageSubmit);
+  const snapshotExport = document.querySelector("#export-situation-snapshot");
+  if (snapshotExport) snapshotExport.addEventListener("click", handleExportSituationSnapshot);
+  const weekTwo = document.querySelector("#advance-week-two-demo");
+  if (weekTwo) weekTwo.addEventListener("click", handleAdvanceWeekTwoDemo);
+  const snapshotImportForm = document.querySelector("#situation-snapshot-import-form");
+  if (snapshotImportForm) snapshotImportForm.addEventListener("submit", handleImportSituationSnapshot);
+  document.querySelectorAll("[data-situation-pack-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      setSituationArtifactPack(store, button.dataset.situationPackId);
+      render();
+    });
+  });
   document.querySelectorAll("[data-situation-approval-id]").forEach((button) => {
     button.addEventListener("click", () => handleSituationApproval(button.dataset.situationApprovalId, button.dataset.situationApprovalDecision));
   });
@@ -590,6 +696,7 @@ function renderMetrics() {
   const wouldUseAgainRate = calculateWouldUseAgainRate(realReviewerRecords);
   const avgHumanMissingRecall = average(realReviewerRecords.map((record) => record.metrics.missingItemRecall));
   const avgFixtureMissingRecall = average(fixtureRecords.map((record) => record.metrics.missingItemRecall));
+  const situationMetrics = summarizeSituationMetrics(store);
 
   views.metrics.innerHTML = `
     <div class="panel-header">
@@ -621,6 +728,24 @@ function renderMetrics() {
       ${metricTile("Override rate", overrideRate === null ? "n/a" : `${overrideRate}%`)}
       ${metricTile("Validation records", String(store.validationRecords.length))}
     </div>
+    <section class="subpanel">
+      <div class="subpanel-heading">
+        <h3>Situation Room metrics</h3>
+        <span>live local state</span>
+      </div>
+      <div class="summary-grid metric-grid">
+        ${metricTile("Room messages", String(situationMetrics.messages))}
+        ${metricTile("Situation cards", String(situationMetrics.cards))}
+        ${metricTile("Work orders", String(situationMetrics.workOrders))}
+        ${metricTile("Pending approvals", String(situationMetrics.pendingApprovals))}
+        ${metricTile("Reviewed gates", String(situationMetrics.reviewedApprovals))}
+        ${metricTile("Review actions", String(situationMetrics.reviewActions))}
+        ${metricTile("Blocked work", String(situationMetrics.blockedWork))}
+        ${metricTile("Local logs", String(situationMetrics.logs))}
+      </div>
+      <p class="boundary-copy">Local logs live in browser localStorage key ${escapeHtml(situationMetrics.localStorageKey)} under situationEventLog, roomMessages, situationCards, workOrders, and approvalRequests.</p>
+      <p class="compact-copy">${escapeHtml(situationMetrics.lastAction)}</p>
+    </section>
     <section class="subpanel">
       <div class="subpanel-heading">
         <h3>Validation standard</h3>
@@ -671,8 +796,30 @@ function handleEvidenceSubmit(event) {
 }
 
 function handleSituationScenario(scenarioId) {
-  runSituationScenario(store, scenarioId);
-  addAuditEvent(store, activeCase(store).id, "situation_scenario_clicked", `Ran ${scenarioId}.`);
+  const result = runSituationDemoAct(store, scenarioId);
+  addAuditEvent(store, activeCase(store).id, "situation_demo_act_clicked", result.actRecord.summary);
+  render();
+}
+
+function handleResetSituationDemoState() {
+  store = resetStore();
+  store.situationLastAction = {
+    status: "demo_state_reset",
+    roomId: store.activeSituationRoomId,
+    summary: "Demo state reset. Run the numbered conductor acts to create visible new agent work.",
+    createdAt: new Date().toISOString()
+  };
+  addAuditEvent(store, activeCase(store).id, "situation_demo_state_reset", "Reset local Situation Room demo state.");
+  render();
+}
+
+function handleSituationAgentToggle(agentId) {
+  store.expandedSituationAgentId = store.expandedSituationAgentId === agentId ? null : agentId;
+  render();
+}
+
+function handleSituationAgentOverlayClose() {
+  store.expandedSituationAgentId = null;
   render();
 }
 
@@ -692,6 +839,56 @@ function handleSituationMessageSubmit(event) {
 function handleSituationApproval(approvalId, decision) {
   resolveSituationApproval(store, approvalId, decision, store.user?.id || "human_reviewer");
   addAuditEvent(store, activeCase(store).id, "situation_approval_decision", `${approvalId} ${decision}.`);
+  render();
+}
+
+function handleApproveAllDemoApprovals() {
+  const resolved = resolveAllDemoSafeApprovals(store, store.user?.id || "human_reviewer");
+  addAuditEvent(
+    store,
+    activeCase(store).id,
+    "situation_demo_safe_approvals",
+    `${resolved.length} local-only approval decision(s) recorded.`
+  );
+  render();
+}
+
+function handleExportSituationSnapshot() {
+  exportSituationDemoSnapshot(store, {
+    sessionId: store.situationSessionId || "session_local_demo",
+    scenarioWeek: store.situationScenarioWeek || 1
+  });
+  addAuditEvent(store, activeCase(store).id, "situation_snapshot_exported", "Built local Situation Room demo snapshot.");
+  render();
+}
+
+function handleImportSituationSnapshot(event) {
+  event.preventDefault();
+  const formData = new FormData(event.currentTarget);
+  const snapshotJson = String(formData.get("situationSnapshotJson") || "").trim();
+  const result = importSituationDemoSnapshot(store, snapshotJson);
+
+  if (!result.valid) {
+    store.situationSnapshotStatus = {
+      status: "error",
+      message: "Snapshot was not loaded.",
+      errors: result.errors,
+      createdAt: new Date().toISOString()
+    };
+  } else {
+    addAuditEvent(store, activeCase(store).id, "situation_snapshot_imported", `Loaded ${result.snapshot.snapshotId}.`);
+  }
+  render();
+}
+
+function handleAdvanceWeekTwoDemo() {
+  const result = runWeekTwoContinuityScenario(store);
+  addAuditEvent(
+    store,
+    activeCase(store).id,
+    "situation_week_two_continuity",
+    `Week ${result.scenarioWeek} continuity scenario created ${result.workOrder.id}.`
+  );
   render();
 }
 
@@ -884,6 +1081,19 @@ function handleValidationSubmit(event) {
   store.validationRecords = upsertById(store.validationRecords, [validationRecord]);
   clearValidationExportState();
   addAuditEvent(store, caseRecord.id, "phase2_reviewer_capture", `Saved ${validationRecord.validationRecordId}.`);
+  appendAgentNextStepProposal(store, {
+    roomId: "room_case_march_2026",
+    agentId: "A-CAD-001",
+    caseId: caseRecord.id,
+    sourceType: "validation_record",
+    sourceId: validationRecord.validationRecordId,
+    summary: "Validation evidence was captured. Choose whether to inspect failure tags, build a local export, or ask for the first 3-5 anonymized real cases.",
+    choices: [
+      { id: "inspect_failure_tags", label: "Inspect failure tags", description: "Review captured failure modes before changing the workflow." },
+      { id: "build_export", label: "Build export", description: "Create a local validation package if the record is human-captured." },
+      { id: "request_cases", label: "Request cases", description: "Use the anonymized data request for 3-5 real Treuhand cases." }
+    ]
+  });
   render();
 }
 
@@ -986,6 +1196,20 @@ function handleReview(recommendationId, decision) {
 
   store.reviewDecisions.unshift(reviewDecision);
   addAuditEvent(store, recommendation.caseId, "review_decision", `Reviewer decision: ${decision}.`);
+  appendAgentNextStepProposal(store, {
+    roomId: "room_case_march_2026",
+    agentId: "A-TREU-001",
+    caseId: recommendation.caseId,
+    workOrderId: recommendation.workOrderId || null,
+    sourceType: "review_decision",
+    sourceId: reviewDecision.id,
+    summary: `Human marked recommendation ${decision}. Choose whether to inspect evidence links, revise the draft, or capture validation feedback.`,
+    choices: [
+      { id: "inspect_evidence", label: "Inspect evidence", description: "Review the evidence IDs linked to the recommendation." },
+      { id: "revise_draft", label: "Revise draft", description: "Keep the client-facing draft in local review." },
+      { id: "capture_validation", label: "Capture validation", description: "Move to Validation and record reviewer feedback." }
+    ]
+  });
   render();
 }
 
@@ -1004,17 +1228,342 @@ function renderRoomButton(room, activeRoom) {
   `;
 }
 
-function renderScenarioButton(scenario) {
+function renderScenarioButton(scenario, index, conductor = {}) {
+  const isComplete = conductor.completedActIds?.includes(scenario.id);
+  const isActive = conductor.activeActId === scenario.id;
+  const completed = isComplete ? "is-complete" : "";
+  const active = isActive ? "is-active" : "";
+  const status = isComplete ? "complete" : isActive ? "active" : "ready";
   return `
-    <button class="secondary-button" data-situation-scenario-id="${escapeHtml(scenario.id)}" title="${escapeHtml(scenario.label)}">
-      ${escapeHtml(scenario.label)}
+    <button class="demo-act-button ${completed} ${active}" data-situation-scenario-id="${escapeHtml(scenario.id)}" title="${escapeHtml(scenario.label)}">
+      <span class="act-number">${escapeHtml(index + 1)}</span>
+      <span class="demo-act-copy">
+        <strong class="demo-act-title">${escapeHtml(scenario.label)}</strong>
+        <small>Agent ${escapeHtml(scenario.primaryAgentId)}</small>
+      </span>
+      <span class="act-status">${escapeHtml(status)}</span>
     </button>
+  `;
+}
+
+function renderDemoConductorProgress(conductor = {}) {
+  const completed = conductor.completedActIds?.length || 0;
+  const total = SITUATION_ROOM_SCENARIOS.length;
+  const lastCopy = conductor.lastAct
+    ? `${conductor.lastAct.label}: ${conductor.lastAct.summary}`
+    : "No act has run yet. Reset only prepares the room; the numbered acts create work.";
+  return `
+    <div class="demo-conductor-progress">
+      <div class="mini-meta">
+        <span>acts complete: ${escapeHtml(completed)}/${escapeHtml(total)}</span>
+        <span>mode: local synthetic</span>
+        <span>external effects: none</span>
+      </div>
+      <p class="compact-copy">${escapeHtml(lastCopy)}</p>
+    </div>
+  `;
+}
+
+function renderDemoActResult(act) {
+  if (!act) {
+    return `
+      <div class="demo-act-result">
+        <strong>Created this act</strong>
+        <p>Run act 1-5 to create visible cards, work orders, approvals, and local logs.</p>
+      </div>
+    `;
+  }
+  return `
+    <div class="demo-act-result is-populated">
+      <div class="subpanel-heading compact-heading">
+        <h3>Created this act</h3>
+        <span>${escapeHtml(act.primaryAgentId)}</span>
+      </div>
+      <div class="created-now-grid">
+        ${metricTile("Cards", String(act.deltas.cards))}
+        ${metricTile("Work orders", String(act.deltas.workOrders))}
+        ${metricTile("Approvals", String(act.deltas.approvals))}
+        ${metricTile("Logs", String(act.deltas.logs))}
+      </div>
+      <div class="contrast-grid">
+        <div>
+          <strong>Generic chatbot</strong>
+          <p>${escapeHtml(act.chatbotContrast)}</p>
+        </div>
+        <div>
+          <strong>Cambrian agents</strong>
+          <p>${escapeHtml(act.cambrianContrast)}</p>
+        </div>
+      </div>
+      <div class="mini-meta">
+        ${renderCompactIdMeta("work order", act.createdWorkOrderIds, 1)}
+        ${renderCompactIdMeta("cards", act.createdCardIds, 2)}
+        ${renderCompactIdMeta("approvals", act.createdApprovalIds, 1)}
+      </div>
+    </div>
+  `;
+}
+
+function renderCompactIdMeta(label, ids = [], maxVisible = 2) {
+  if (!ids.length) return "";
+  const visible = ids.slice(0, maxVisible).map((id) => compactId(id));
+  const remaining = ids.length - visible.length;
+  const copy = `${label}: ${visible.join(", ")}${remaining > 0 ? ` +${remaining} more` : ""}`;
+  return `<span class="id-chip" title="${escapeHtml(ids.join(", "))}">${escapeHtml(copy)}</span>`;
+}
+
+function compactId(id) {
+  const text = String(id || "");
+  if (text.length <= 34) return text;
+  return `${text.slice(0, 18)}...${text.slice(-10)}`;
+}
+
+function renderSituationDemoReport(report) {
+  return `
+    <div class="demo-report">
+      <strong>Guided demo recap</strong>
+      <p>${escapeHtml(report.recapSummary || "Guided demo completed locally.")}</p>
+      <div class="mini-meta">
+        <span>scenarios: ${escapeHtml((report.scenarioIds || []).length)}</span>
+        <span>agents shown: ${escapeHtml(report.activeAgentsShown)}</span>
+        <span>truth: ${escapeHtml(report.truthLabel)}</span>
+        <span>external effects: none</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderSituationAgentStatus(agent, expandedAgentId) {
+  const outputCount = agent.totalOutputs || agent.cards + agent.workOrders + agent.controlOutputs + agent.approvals + agent.agentRuns;
+  const active = agent.agentId === expandedAgentId ? "is-active" : "";
+  return `
+    <button type="button" class="agent-status-card ${active}" data-situation-agent-id="${escapeHtml(agent.agentId)}" title="Show ${escapeHtml(agent.agentId)} details">
+      <span class="agent-status-summary">
+        <span>
+          <strong>${escapeHtml(agent.agentId)}</strong>
+          <em>${escapeHtml(agent.role)}</em>
+        </span>
+        <span class="agent-output-count">${escapeHtml(outputCount)} outputs</span>
+        <small>${escapeHtml(agent.latestAction)}</small>
+      </span>
+    </button>
+  `;
+}
+
+function renderSituationAgentOverlay(agent) {
+  const approvalCopy = agent.humanApprovalRequired ? "approval required for sensitive actions" : "no sensitive action permitted";
+  return `
+    <div class="agent-popover" role="dialog" aria-modal="false" aria-labelledby="agent-popover-title">
+      <div class="agent-popover-header">
+        <div>
+          <p class="eyebrow">Expanded agent</p>
+          <h3 id="agent-popover-title">${escapeHtml(agent.agentId)}</h3>
+          <span>${escapeHtml(agent.role)}</span>
+        </div>
+        <button type="button" class="icon-button" id="close-situation-agent-overlay" title="Collapse agent detail">x</button>
+      </div>
+      <div class="mini-meta">
+        <span>cards: ${escapeHtml(agent.cards)}</span>
+        <span>work orders: ${escapeHtml(agent.workOrders)}</span>
+        <span>control outputs: ${escapeHtml(agent.controlOutputs)}</span>
+        <span>approvals: ${escapeHtml(agent.approvals)}</span>
+        ${agent.agentRuns ? `<span>runs: ${escapeHtml(agent.agentRuns)}</span>` : ""}
+      </div>
+      <p class="compact-copy">${escapeHtml(agent.latestAction)}</p>
+      <div class="mini-meta">
+        <span>${escapeHtml(agent.demoCommand)}</span>
+      </div>
+      <p class="compact-copy">${escapeHtml(approvalCopy)}</p>
+      <p class="boundary-copy">${escapeHtml(agent.approvalBoundary)}</p>
+    </div>
+  `;
+}
+
+function renderSituationLastAction(action) {
+  return `
+    <div class="situation-last-action">
+      <strong>${escapeHtml(action.status)}</strong>
+      <span>${escapeHtml(action.summary)}</span>
+      <div class="mini-meta">
+        ${action.roomId ? `<span>room: ${escapeHtml(action.roomId)}</span>` : ""}
+        ${action.workOrderId ? renderCompactIdMeta("work order", [action.workOrderId], 1) : ""}
+        ${action.approvalId ? renderCompactIdMeta("approval", [action.approvalId], 1) : ""}
+        ${action.cardIds?.length ? renderCompactIdMeta("cards", action.cardIds, 2) : ""}
+        <span>${formatTime(action.createdAt)}</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderPackButton(pack, activePack) {
+  const active = pack.id === activePack ? "is-active" : "";
+  return `
+    <button class="secondary-button pack-button ${active}" data-situation-pack-id="${escapeHtml(pack.id)}" title="${escapeHtml(pack.label)}">
+      ${escapeHtml(pack.label)}
+    </button>
+  `;
+}
+
+function renderSituationArtifactPack(activePack, { roomCards, roomWorkOrders, roomApprovals, roomLogs }) {
+  if (activePack === "events") {
+    const events = [
+      ...roomCards.filter((card) => card.type !== "agent_next_step_proposal"),
+      ...roomLogs.filter((log) => log.eventType === "scenario_run" || log.eventType === "demo_command_routed")
+    ].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    return events.length === 0 ? emptyState("No local events in this room.") : events.map(renderPackedEvent).join("");
+  }
+  if (activePack === "work_orders") {
+    return roomWorkOrders.length === 0
+      ? emptyState("No work orders in this room.")
+      : roomWorkOrders.map(renderPackedWorkOrder).join("");
+  }
+  if (activePack === "approvals") {
+    return roomApprovals.length === 0
+      ? emptyState("No approvals in this room.")
+      : roomApprovals.map(renderPackedApproval).join("");
+  }
+  if (activePack === "logs") {
+    return roomLogs.length === 0 ? emptyState("No local log records in this room.") : roomLogs.map(renderPackedLog).join("");
+  }
+  return roomCards.length === 0 ? emptyState("No cards in this room.") : roomCards.map(renderPackedCard).join("");
+}
+
+function renderPackedCard(card) {
+  const fresh = store.situationDemoConductor?.lastAct?.createdCardIds?.includes(card.id) ? "is-created-this-act" : "";
+  return `
+    <details class="packed-artifact severity-${escapeHtml(card.severity)} ${fresh}">
+      <summary>
+        <strong>${escapeHtml(card.title)}</strong>
+        <span>${escapeHtml(card.type)} - ${formatTime(card.createdAt)}</span>
+      </summary>
+      ${renderSituationCard(card)}
+    </details>
+  `;
+}
+
+function renderPackedEvent(event) {
+  if (event.cardId) {
+    return `
+      <details class="packed-artifact packed-event">
+        <summary>
+          <strong>${escapeHtml(event.title)}</strong>
+          <span>${escapeHtml(event.type)} - agent ${escapeHtml(event.agentId)} - ${formatTime(event.createdAt)}</span>
+        </summary>
+        <div class="mini-meta">
+          <span>card: ${escapeHtml(event.id)}</span>
+          <span>work order: ${escapeHtml(event.workOrderId || "none")}</span>
+          <span>trace: ${escapeHtml(event.traceId)}</span>
+        </div>
+        <p>${escapeHtml(event.summary)}</p>
+      </details>
+    `;
+  }
+  return renderPackedLog(event);
+}
+
+function renderPackedWorkOrder(workOrder) {
+  const fresh = store.situationDemoConductor?.lastAct?.createdWorkOrderIds?.includes(workOrder.id) ? "is-created-this-act" : "";
+  return `
+    <details class="packed-artifact ${fresh}">
+      <summary>
+        <strong>${escapeHtml(workOrder.agentId)}</strong>
+        <span>${escapeHtml(workOrder.status)} - ${formatTime(workOrder.updatedAt || workOrder.createdAt)}</span>
+      </summary>
+      ${renderSituationWorkOrder(workOrder)}
+    </details>
+  `;
+}
+
+function renderPackedApproval(approval) {
+  return `
+    <details class="packed-artifact">
+      <summary>
+        <strong>${escapeHtml(approval.actionType)}</strong>
+        <span>${escapeHtml(approval.status)} - ${formatTime(approval.decidedAt || approval.createdAt)}</span>
+      </summary>
+      ${renderSituationApproval(approval)}
+    </details>
+  `;
+}
+
+function renderPackedLog(log) {
+  return `
+    <details class="packed-artifact packed-log">
+      <summary>
+        <strong>${escapeHtml(log.eventType)}</strong>
+        <span>${formatTime(log.createdAt)}</span>
+      </summary>
+      <p>${escapeHtml(log.summary)}</p>
+      <div class="mini-meta">
+        <span>log: ${escapeHtml(log.id)}</span>
+        <span>room: ${escapeHtml(log.roomId)}</span>
+        <span>${escapeHtml(log.artifactType)}: ${escapeHtml(log.artifactId)}</span>
+        <span>stored: ${escapeHtml(log.storage)}</span>
+      </div>
+    </details>
+  `;
+}
+
+function renderAdvisoryChoices(actions) {
+  return `
+    <div class="advisory-choice-list">
+      ${actions
+        .map(
+          (action) => `
+            <article class="advisory-choice">
+              <strong>${escapeHtml(action.label)}</strong>
+              <span>${escapeHtml(action.description || "Advisory only.")}</span>
+            </article>
+          `
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function renderSituationSnapshotPanel() {
+  const snapshotJson = store.situationSnapshotExport ? JSON.stringify(store.situationSnapshotExport, null, 2) : "";
+  return `
+    <div class="button-row">
+      <button class="secondary-button" id="export-situation-snapshot" title="Build local demo snapshot JSON">Save demo snapshot</button>
+      <button class="secondary-button" id="advance-week-two-demo" title="Run week-two continuity scenario from local logs">Advance one week</button>
+    </div>
+    ${renderValidationStatus(store.situationSnapshotStatus)}
+    ${
+      snapshotJson
+        ? `<label class="export-output-label">Snapshot JSON<textarea class="export-output" rows="10" readonly>${escapeHtml(snapshotJson)}</textarea></label>`
+        : emptyState("Save a demo snapshot to carry this local state into demo part 2.")
+    }
+    <form id="situation-snapshot-import-form" class="validation-form compact-import-form">
+      <label>
+        Load snapshot JSON
+        <textarea name="situationSnapshotJson" rows="6" placeholder='{"snapshotVersion":"situation.demo.snapshot.v1",...}'></textarea>
+      </label>
+      <button type="submit" class="secondary-button" title="Load local demo snapshot">Load snapshot</button>
+    </form>
   `;
 }
 
 function renderTimelineItem(item) {
   if (item.cardId) return renderSituationCard(item);
   return renderRoomMessage(item);
+}
+
+function renderRoomChatMessage(message) {
+  return `
+    <article class="chat-message ${message.actorType === "system" ? "system-message" : ""}">
+      <div>
+        <strong>${escapeHtml(message.actorId)}</strong>
+        <span>${escapeHtml(message.actorType)} - ${formatTime(message.createdAt)}</span>
+      </div>
+      <p>${escapeHtml(message.text)}</p>
+      <div class="mini-meta">
+        <span>message: ${escapeHtml(message.id)}</span>
+        <span>room: ${escapeHtml(message.roomId)}</span>
+        ${message.mentions?.length ? `<span>mentions: ${escapeHtml(message.mentions.join(", "))}</span>` : ""}
+      </div>
+    </article>
+  `;
 }
 
 function renderRoomMessage(message) {
@@ -1035,22 +1584,38 @@ function renderRoomMessage(message) {
 }
 
 function renderSituationCard(card) {
+  const fresh = store.situationDemoConductor?.lastAct?.createdCardIds?.includes(card.id) ? "is-created-this-act" : "";
+  const blockedCopy =
+    card.approvalId && card.approvalStatus === "pending"
+      ? `<p class="warning-copy">Blocked until approval ${escapeHtml(card.approvalId)} is resolved.</p>`
+      : card.resolutionSummary
+        ? `<p class="boundary-copy">${escapeHtml(card.resolutionSummary)}</p>`
+        : "";
   return `
-    <article class="situation-card severity-${escapeHtml(card.severity)}">
+    <article class="situation-card severity-${escapeHtml(card.severity)} ${fresh}">
       <div class="artifact-heading">
         <strong>${escapeHtml(card.title)}</strong>
         <span>${escapeHtml(card.type)}</span>
       </div>
       <p>${escapeHtml(card.summary)}</p>
+      ${blockedCopy}
       <div class="mini-meta">
-        <span>${escapeHtml(card.id)}</span>
+        <span>card: ${escapeHtml(card.id)}</span>
+        <span>room: ${escapeHtml(card.roomId)}</span>
+        ${card.workOrderId ? `<span>work order: ${escapeHtml(card.workOrderId)}</span>` : ""}
         ${card.agentId ? `<span>agent: ${escapeHtml(card.agentId)}</span>` : ""}
         ${card.caseId ? `<span>case: ${escapeHtml(card.caseId)}</span>` : ""}
         ${card.runId ? `<span>run: ${escapeHtml(card.runId)}</span>` : ""}
         ${card.approvalId ? `<span>approval: ${escapeHtml(card.approvalId)}</span>` : ""}
+        ${card.approvalId ? `<span>approval status: ${escapeHtml(card.approvalStatus)}</span>` : ""}
         <span>trace: ${escapeHtml(card.traceId)}</span>
+        <span>truth: ${escapeHtml(card.truthLabelText || card.truthLabel || "synthetic/local")}</span>
+        <span>external effects: ${escapeHtml(card.externalEffect || "none")}</span>
+        <span>created: ${formatTime(card.createdAt)}</span>
+        ${card.updatedAt ? `<span>updated: ${formatTime(card.updatedAt)}</span>` : ""}
       </div>
       ${card.evidenceIds?.length ? `<div class="mini-meta"><span>evidence: ${escapeHtml(card.evidenceIds.join(", "))}</span></div>` : ""}
+      ${card.actions?.length ? renderAdvisoryChoices(card.actions) : ""}
     </article>
   `;
 }
@@ -1064,10 +1629,16 @@ function renderSituationApproval(approval) {
       </div>
       <p>${escapeHtml(approval.rationale)}</p>
       <div class="mini-meta">
-        <span>${escapeHtml(approval.id)}</span>
+        ${renderCompactIdMeta("approval", [approval.id], 1)}
+        ${renderCompactIdMeta("work order", [approval.workOrderId], 1)}
         <span>agent: ${escapeHtml(approval.requestedByAgentId)}</span>
         <span>approver: ${escapeHtml(approval.approverRole)}</span>
+        ${renderCompactIdMeta("trace", [approval.traceId], 1)}
+        <span>external effects: ${escapeHtml(approval.externalEffect || "none")}</span>
+        <span>created: ${formatTime(approval.createdAt)}</span>
+        ${approval.decidedAt ? `<span>decided: ${formatTime(approval.decidedAt)}</span>` : ""}
       </div>
+      <p class="boundary-copy">${escapeHtml(approval.localOnlyNotice || "Local approval recorded only; no external action will run.")}</p>
       ${
         approval.status === "pending"
           ? `<div class="button-row">
@@ -1089,10 +1660,17 @@ function renderSituationWorkOrder(workOrder) {
       </div>
       <p>${escapeHtml(workOrder.command)}</p>
       <div class="mini-meta">
-        <span>${escapeHtml(workOrder.id)}</span>
+        ${renderCompactIdMeta("work order", [workOrder.id], 1)}
+        <span>room: ${escapeHtml(workOrder.roomId)}</span>
         ${workOrder.caseId ? `<span>case: ${escapeHtml(workOrder.caseId)}</span>` : ""}
-        <span>trace: ${escapeHtml(workOrder.traceId)}</span>
+        ${renderCompactIdMeta("trace", [workOrder.traceId], 1)}
+        <span>truth: ${escapeHtml(workOrder.truthLabel || "synthetic_local")}</span>
+        <span>external effects: ${escapeHtml(workOrder.externalEffect || "none")}</span>
+        ${workOrder.approvalIds?.length ? renderCompactIdMeta("approvals", workOrder.approvalIds, 1) : ""}
+        <span>created: ${formatTime(workOrder.createdAt)}</span>
+        ${workOrder.updatedAt ? `<span>updated: ${formatTime(workOrder.updatedAt)}</span>` : ""}
       </div>
+      ${workOrder.localOnlyNotice ? `<p class="boundary-copy">${escapeHtml(workOrder.localOnlyNotice)}</p>` : ""}
       <ul class="plain-list compact-steps">
         ${workOrder.stages.map((stage) => `<li>${escapeHtml(stage)}</li>`).join("")}
       </ul>

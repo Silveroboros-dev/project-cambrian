@@ -59,6 +59,7 @@ The prototype proves the operating loop, not production readiness:
 - [Harness UI contract](docs/harness-ui-contract.md): acceptance criteria and data-binding rules for context/control-agent surfaces.
 - [Phase 2 validation contract](docs/phase2-validation-contract.md): acceptance criteria and identity/mutation rules for the Treuhand validation kit.
 - [Situation Room contract](docs/situation-room-contract.md): local agent-tag, work-order, scenario-card, approval, and audit rules for the six-agent control loop.
+- [Situation Room demo script](docs/demo-script-situation-room.md): opening stakeholder click path for the local six-agent Situation Room demo.
 - [Phase 2 case import format](docs/phase2-case-import-format.md): versioned anonymized case format for local validation.
 - [Phase 2 demo script](docs/demo-script-phase2.md): stakeholder click path, talk track, expected questions, and next-step proposal.
 - [Phase 2 anonymized data request](docs/phase2-anonymized-data-request.md): one-page request for 3-5 friendly reviewer cases.
@@ -94,11 +95,36 @@ The bundled fixtures live in [src/phase2SampleCases.js](src/phase2SampleCases.js
 
 ## Situation Room Prototype
 
-The local app includes a `Situation` tab for synthetic operating scenarios. It shows how the active Treuhand workflow agent and five control agents can be tagged into a shared room as governed work orders.
+The local app now opens on the `Situation` tab. This is the demo spine for the active operating model: one Treuhand workflow agent plus five control agents working in shared local rooms.
 
-Use it to run local-only scenarios for inbound email intake, confidential upload attempt, employee onboarding, agent handoff gap, and weekly control audit. Each scenario creates typed event cards, approval gates, and compatible local artifacts such as context packets, security findings, authorization decisions, gap findings, cadence nudges, and audit events.
+Click `Reset demo state`, then run the numbered `Demo conductor` acts one by one:
 
-This is not a Slack, Gmail, browser-monitoring, IAM, or external-agent integration. It is a local prototype of the operating model.
+1. inbound email intake;
+2. confidential upload attempt;
+3. employee onboarding;
+4. agent handoff gap;
+5. weekly control audit.
+
+Each act should show a `Created this act` panel with new card, work-order, approval, and local-log counts, plus a contrast between a generic chatbot and the governed Cambrian agent loop. The demo should show six active agents, typed cards, work orders, pending approvals, no external side effects, and `synthetic/local` truth labels.
+
+Each thematic room has its own retained local chat. Agent commands append a human message, create local artifacts when supported, and add a system reply naming the created work order/cards/approval gates. Dense output is packed into switchable `Agent cards`, `Events`, `Work orders`, `Approvals`, and `Local logs` views so the demo does not require scanning one giant timeline.
+
+Demo-useful tags also run local deterministic scenarios:
+
+- `@ingest process inbound email`;
+- `@treu run intake review`;
+- `@sec check upload`;
+- `@auth onboard junior accounting assistant`;
+- `@gap inspect handoff`;
+- `@cad run weekly audit`.
+
+This is not a Slack clone, Gmail integration, browser DLP tool, IAM system, or autonomous accounting system. It is a local operating model for testing governed agent-assisted Treuhand workflows.
+
+After the Situation Room walkthrough, open `Validation` to show the proof package: anonymized case import, reviewer capture, before/after memo, export privacy gate, and fixture-versus-human proof separation.
+
+Local Situation Room logs live in browser `localStorage` under the app store key `agentops-core-store-v1`, specifically in `situationEventLog`, `roomMessages`, `situationCards`, `workOrders`, and `approvalRequests`. The Metrics tab includes live Situation Room counts for messages, cards, work orders, approvals, blocked work, review actions, and local logs.
+
+For a second demo a week later, use `Save demo snapshot` to create a versioned local JSON snapshot, then `Load snapshot` on another browser/session to restore the state. `Advance one week` runs a synthetic continuity scenario where `A-CAD-001` reviews prior local logs, unresolved approvals, blocked work, and next business steps. This is portable demo persistence, not a production database or audit ledger.
 
 ## Fail-Fast Validation
 

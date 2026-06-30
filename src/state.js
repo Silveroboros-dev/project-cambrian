@@ -68,6 +68,16 @@ export function ensureStoreShape(store) {
   shaped.situationCards ||= [];
   shaped.approvalRequests ||= [];
   shaped.selectedSituationCardId ||= null;
+  shaped.expandedSituationAgentId ||= null;
+  shaped.situationDemoConductor ||= situationSeed.situationDemoConductor;
+  shaped.situationDemoReport ||= null;
+  shaped.activeSituationPack ||= situationSeed.activeSituationPack;
+  shaped.situationLastAction ||= null;
+  shaped.situationEventLog ||= situationSeed.situationEventLog;
+  shaped.situationSessionId ||= "session_local_demo";
+  shaped.situationScenarioWeek ||= 1;
+  shaped.situationSnapshotStatus ||= null;
+  shaped.situationSnapshotExport ||= null;
   shaped.agentRuns ||= [];
   shaped.recommendations ||= [];
   shaped.reviewDecisions ||= [];

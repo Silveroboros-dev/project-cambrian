@@ -7,7 +7,9 @@ Target length: 4-6 minutes
 
 ## Demo Claim
 
-This demo does not prove customer value yet. It proves that the Phase 2 validation loop exists:
+The main stakeholder demo now opens with the [Situation Room demo script](demo-script-situation-room.md). Use this Phase 2 script after the Situation Room walkthrough to show the proof package.
+
+This validation demo does not prove customer value yet. It proves that the Phase 2 validation loop exists:
 
 > Given an anonymized Treuhand intake case, the system can load evidence, apply a configured checklist, run a deterministic agent, require human review, capture reviewer feedback and failure tags, and produce a before/after operating memo.
 
@@ -29,7 +31,7 @@ Open:
 http://127.0.0.1:5173
 ```
 
-If the browser has stale local state, click `Reset` on the Case tab.
+If the browser has stale local state, click `Reset demo state` on the Situation tab and rerun the numbered Demo conductor acts, or click `Reset` on the Case tab for the older case-first flow.
 
 ## Opening Talk Track
 
@@ -43,7 +45,17 @@ Then set the boundary:
 
 ## Click Path
 
-### 1. Start On Case
+### 1. Start From Situation Room Handoff
+
+After the Situation Room Demo conductor acts, click `Validation`.
+
+Say:
+
+> The Situation Room is the operating loop. This Validation tab is the proof package that tests whether the loop is actually useful on anonymized Treuhand cases.
+
+Then continue with the validation flow below.
+
+### 2. Open Case If Needed
 
 Show:
 
@@ -58,7 +70,7 @@ Say:
 
 > The first surface is intentionally boring: evidence, checklist output, warnings, review pack, and audit trail. The point is not autonomy. The point is reviewable preparation work.
 
-### 2. Open Validation
+### 3. Open Validation
 
 Click `Validation`.
 
@@ -83,7 +95,7 @@ Also show:
 
 > Real reviewer packets are pasted as local JSON and validated before loading. Invalid JSON, missing fields, or privacy issues do not mutate the active case.
 
-### 3. Run All Samples
+### 4. Run All Samples
 
 Click `Run all samples`.
 
@@ -97,7 +109,7 @@ Say:
 
 > The replay simulates the validation loop over two cases. In the real test, these would be anonymized monthly or quarterly intake packets from an accountant.
 
-### 4. Inspect Active Validation Case
+### 5. Inspect Active Validation Case
 
 Show:
 
@@ -110,7 +122,7 @@ Say:
 
 > The checklist is case-specific. That matters because Treuhand workflows are not identical across firms or clients. If the checklist changes, missing-item detection must change.
 
-### 5. Show Reviewer Capture
+### 6. Show Reviewer Capture
 
 Show:
 
@@ -132,7 +144,7 @@ Say:
 
 > This is the anti-demo-theater part. We capture not only whether the output looks good, but where it failed. The failure tags are what make the next product decision possible.
 
-### 6. Show Validation Package Export
+### 7. Show Validation Package Export
 
 Show:
 
@@ -147,7 +159,7 @@ Say:
 
 > The package is the portable artifact for reviewer follow-up. It is still local JSON, not a production record. The privacy gate exists so we fail closed if pasted data is not properly anonymized.
 
-### 7. Show Operating Memo
+### 8. Show Operating Memo
 
 Show the memo.
 
@@ -166,7 +178,7 @@ Say:
 
 > This memo is the artifact we want after every validation case. If we cannot write this honestly after real cases, we should not pitch an acquisition thesis.
 
-### 8. Open Metrics
+### 9. Open Metrics
 
 Click `Metrics`.
 
