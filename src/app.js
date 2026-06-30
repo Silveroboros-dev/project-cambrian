@@ -289,7 +289,7 @@ function renderValidation() {
       ${metricTile("Sample imports", String(store.validationCaseImports.length))}
       ${metricTile("Validation records", String(store.validationRecords.length))}
       ${metricTile("Active case", caseRecord.id)}
-      ${metricTile("Latest run", latestRun ? latestRun.id : "none")}
+      ${metricTile("Rating source", latestRecord?.reviewerRating?.ratingSource || "none")}
     </div>
 
     <div class="split validation-split">
@@ -446,8 +446,12 @@ function renderMetrics() {
   const avgMinutesSaved = average(completedRuns.map((run) => run.output.metrics.estimated_minutes_saved));
   const avgEvidenceCoverage = average(allRuns.map((run) => run.output.metrics.evidence_coverage));
   const overrideRate = calculateOverrideRate(store.reviewDecisions);
-  const avgReviewerSaved = average(store.validationRecords.map((record) => record.metrics.reviewerEstimatedMinutesSaved));
-  const wouldUseAgainRate = calculateWouldUseAgainRate(store.validationRecords);
+  const humanRecords = store.validationRecords.filter((record) => record.reviewerRating?.ratingSource === "human_capture");
+  const fixtureRecords = store.validationRecords.filter((record) => record.reviewerRating?.ratingSource === "fixture_seed");
+  const avgReviewerSaved = average(humanRecords.map((record) => record.metrics.reviewerEstimatedMinutesSaved));
+  const wouldUseAgainRate = calculateWouldUseAgainRate(humanRecords);
+  const avgHumanMissingRecall = average(humanRecords.map((record) => record.metrics.missingItemRecall));
+  const avgFixtureMissingRecall = average(fixtureRecords.map((record) => record.metrics.missingItemRecall));
 
   views.metrics.innerHTML = `
     <div class="panel-header">
@@ -457,16 +461,22 @@ function renderMetrics() {
       </div>
     </div>
     <div class="summary-grid metric-grid">
-      ${metricTile("Validation cases", String(store.validationRecords.length))}
-      ${metricTile("Reviewer saved", avgReviewerSaved === null ? "n/a" : `${avgReviewerSaved} min`)}
-      ${metricTile("Evidence coverage", avgEvidenceCoverage === null ? "n/a" : `${avgEvidenceCoverage}%`)}
+      ${metricTile("Human captures", String(humanRecords.length))}
+      ${metricTile("Human saved", avgReviewerSaved === null ? "n/a" : `${avgReviewerSaved} min`)}
+      ${metricTile("Human missing recall", avgHumanMissingRecall === null ? "n/a" : `${avgHumanMissingRecall}%`)}
       ${metricTile("Would use again", wouldUseAgainRate === null ? "n/a" : `${wouldUseAgainRate}%`)}
+    </div>
+    <div class="summary-grid metric-grid">
+      ${metricTile("Fixture records", String(fixtureRecords.length))}
+      ${metricTile("Fixture missing recall", avgFixtureMissingRecall === null ? "n/a" : `${avgFixtureMissingRecall}%`)}
+      ${metricTile("Evidence coverage", avgEvidenceCoverage === null ? "n/a" : `${avgEvidenceCoverage}%`)}
+      ${metricTile("Total failure tags", String(store.validationRecords.flatMap((record) => record.failureTagIds).length))}
     </div>
     <div class="summary-grid metric-grid">
       ${metricTile("Reviewed cases", String(reviewedCaseIds.size))}
       ${metricTile("Agent saved", avgMinutesSaved === null ? "n/a" : `${avgMinutesSaved} min`)}
       ${metricTile("Override rate", overrideRate === null ? "n/a" : `${overrideRate}%`)}
-      ${metricTile("Failure tags", String(store.validationRecords.flatMap((record) => record.failureTagIds).length))}
+      ${metricTile("Validation records", String(store.validationRecords.length))}
     </div>
     <section class="subpanel">
       <div class="subpanel-heading">
@@ -554,7 +564,7 @@ function handleRunAllValidationSamples() {
       store,
       result.caseRecord.id,
       "phase2_validation_sample_run",
-      `${result.caseRecord.id} replayed with reviewer rating and operating memo.`
+      `${result.caseRecord.id} replayed with fixture_seed rating and operating memo.`
     );
   }
 
@@ -641,6 +651,7 @@ function handleValidationSubmit(event) {
     humanMissingItemIds: caseRecord.validation?.baseline?.humanMissingItemIds || []
   };
   const reviewerRating = {
+    ratingSource: "human_capture",
     overallUsefulness: Number(formData.get("overallUsefulness")),
     checklistTrust: Number(formData.get("checklistTrust")),
     evidenceTraceability: Number(formData.get("evidenceTraceability")),

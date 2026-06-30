@@ -11,7 +11,7 @@ This demo does not prove customer value yet. It proves that the Phase 2 validati
 
 > Given an anonymized Treuhand intake case, the system can load evidence, apply a configured checklist, run a deterministic agent, require human review, capture reviewer feedback and failure tags, and produce a before/after operating memo.
 
-The live proof still requires 10-20 real anonymized Treuhand cases.
+The live proof still requires 3-5 real anonymized Treuhand cases first. Expand to 10-20 only after those cases show the import format, checklist scoring, and reviewer capture are useful.
 
 ## Setup
 
@@ -67,12 +67,16 @@ Show:
 - `Sample imports`;
 - `Validation records`;
 - active case ID;
-- latest run ID;
+- rating source;
 - two bundled anonymized fixtures.
 
 Say:
 
 > These are synthetic/anonymized fixtures that show the shape of real pilot accounting or Treuhand cases. They are demo data, not market proof.
+
+Also say:
+
+> Fixture records are labeled `fixture_seed`. Only reviewer-session records labeled `human_capture` count as evidence of business value.
 
 ### 3. Run All Samples
 
@@ -134,6 +138,7 @@ Call out:
 - minutes saved;
 - review burden;
 - evidence quality;
+- missing-item recall and precision;
 - recurring failure modes;
 - decision.
 
@@ -148,7 +153,9 @@ Click `Metrics`.
 Show:
 
 - validation cases;
-- reviewer-estimated minutes saved;
+- human captures versus fixture records;
+- human reviewer-estimated minutes saved;
+- human and fixture missing-item recall;
 - evidence coverage;
 - would-use-again rate;
 - failure tags.
@@ -166,7 +173,7 @@ Why:
 - baseline manual prep time is clear;
 - VAT report is intentionally missing;
 - evidence links are easy to inspect;
-- reviewer rating is positive;
+- fixture-seeded rating is positive;
 - generated memo has a clean continue-validation story.
 
 ## Expected Questions And Answers

@@ -12,7 +12,7 @@ const baseCase = {
       id: "ev_bank",
       type: "document",
       title: "Bank statement March 2026",
-      content: "Bank statement for 2026-03 with IBAN CH93 and closing balance CHF 12,400."
+      content: "Bank statement for 2026-03 with IBAN redacted and closing balance CHF 12,400."
     },
     {
       id: "ev_sales",
@@ -47,15 +47,43 @@ test("classifies common Treuhand evidence deterministically", () => {
   );
 });
 
+test("classifies Swiss and German Treuhand document names", () => {
+  const examples = [
+    ["Bankauszug Maerz 2026", "bank_statement"],
+    ["Kontoauszug Q1 2026", "bank_statement"],
+    ["MWST-Abrechnung Q1 2026", "vat_report"],
+    ["Kreditorenrechnung Maerz 2026", "purchase_invoice"],
+    ["Debitorenliste Maerz 2026", "sales_invoice"],
+    ["Ausgangsrechnung Maerz 2026", "sales_invoice"],
+    ["Eingangsrechnung Maerz 2026", "purchase_invoice"],
+    ["Lohnabrechnung Maerz 2026", "payroll_summary"],
+    ["Spesenbeleg Maerz 2026", "expense_receipt"],
+    ["Quittung Maerz 2026", "expense_receipt"]
+  ];
+
+  for (const [title, expectedType] of examples) {
+    assert.equal(classifyEvidence({ title, content: `${title}.` }).type, expectedType);
+  }
+});
+
 test("creates checklist, missing items, recommendation, and metrics", () => {
   const output = runTreuhandAgent(baseCase, defaultChecklist);
 
   assert.equal(output.agent_code, "A-TREU-001");
   assert.equal(output.status, "needs_review");
   assert.equal(output.document_inventory.length, 3);
-  assert.ok(output.checklist.some((item) => item.item.includes("VAT") && item.status === "open"));
+  assert.ok(
+    output.checklist.some(
+      (item) =>
+        item.checklistItemId === "vat_report" &&
+        item.required === true &&
+        item.status === "open" &&
+        item.claimSupport.supportType === "absence_from_checked_inventory"
+    )
+  );
   assert.equal(output.recommendations.length, 1);
   assert.equal(output.recommendations[0].requires_human_approval, true);
+  assert.deepEqual(output.recommendations[0].checklistItemIds, ["purchase_invoice", "vat_report"]);
   assert.ok(output.metrics.estimated_minutes_saved > 0);
 });
 

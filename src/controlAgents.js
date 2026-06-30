@@ -256,19 +256,21 @@ export function runGapAnalyst({
   for (const item of agentRun.output?.checklist || []) {
     if (item.status !== "open") continue;
 
-    const slug = slugify(item.item);
+    const checklistItemId = item.checklistItemId || slugify(item.item);
     const finding = {
-      id: `gap_${caseRecord.id}_${agentRun.id}_${slug}`,
+      id: `gap_${caseRecord.id}_${agentRun.id}_${checklistItemId}`,
       caseId: caseRecord.id,
       runId: agentRun.id,
       agentCode: "A-GAP-001",
       targetType: "checklist_item",
-      targetId: slug,
+      targetId: checklistItemId,
+      checklistItemId,
       severity: "medium",
       status: "advisory",
       summary: `Missing context: ${item.item}.`,
       proposed_action: "Create client-manager follow-up or checklist update if this repeats.",
       evidence_ids: item.evidence_ids || [],
+      checkedEvidenceIds: item.claimSupport?.checkedEvidenceIds || [],
       createdAt
     };
     gapFindings.push(finding);
@@ -280,7 +282,7 @@ export function runGapAnalyst({
       from_agent: "A-GAP-001",
       to_agent: "human_client_manager",
       reason: finding.summary,
-      requested_context: [item.item],
+      requested_context: [checklistItemId],
       evidence_ids: item.evidence_ids || [],
       status: "proposed",
       human_review_required: true,

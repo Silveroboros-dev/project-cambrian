@@ -36,6 +36,7 @@ export const FAILURE_TAGS = [
 ];
 
 const FAILURE_TAG_IDS = new Set(FAILURE_TAGS.map((tag) => tag.id));
+const RATING_SOURCES = new Set(["fixture_seed", "human_capture"]);
 
 export function validateCaseImport(record) {
   const errors = [];
@@ -83,6 +84,10 @@ export function validateCaseImport(record) {
     if (!FAILURE_TAG_IDS.has(tagId)) {
       errors.push(`Unknown failure tag: ${tagId}.`);
     }
+  }
+
+  if (record.reviewerRating?.ratingSource && !RATING_SOURCES.has(record.reviewerRating.ratingSource)) {
+    errors.push("reviewerRating.ratingSource must be fixture_seed or human_capture.");
   }
 
   return { valid: errors.length === 0, errors };
@@ -233,7 +238,11 @@ export function buildOperatingMemo({ caseRecord, run, validationRecord }) {
   const rating = normalizeReviewerRating(validationRecord?.reviewerRating || caseRecord.validation?.reviewerRating || {});
   const failureTagIds = validationRecord?.failureTagIds || rating.failureTagIds;
   const evidenceIds = output?.document_inventory?.map((item) => item.evidence_id) || caseRecord.evidence.map((item) => item.id);
-  const missingItems = output?.checklist?.filter((item) => item.status === "open").map((item) => item.item) || [];
+  const missingItems = output?.checklist?.filter((item) => item.status === "open") || [];
+  const missingComparison = compareMissingItems({
+    humanMissingItemIds: baseline.humanMissingItemIds,
+    agentMissingItemIds: missingItems.map((item) => item.checklistItemId).filter(Boolean)
+  });
   const reviewBurden =
     rating.failureTagIds.length === 0
       ? "Low diagnostic burden captured."
@@ -247,15 +256,19 @@ export function buildOperatingMemo({ caseRecord, run, validationRecord }) {
     output
       ? `Agent-assisted result: ${output.metrics.documents_processed} evidence item(s), ${output.metrics.completeness_score}% checklist completeness, ${output.metrics.missing_items_count} missing item(s).`
       : "Agent-assisted result: no agent run captured yet.",
+    `Rating source: ${rating.ratingSource}.`,
     `Hours or minutes saved: ${rating.timeSavedMinutes} minutes estimated by reviewer.`,
     `Review burden created: ${reviewBurden}`,
-    `Evidence quality: ${output?.metrics.evidence_coverage ?? 0}% evidence coverage; evidence IDs ${evidenceIds.join(", ") || "none"}.`,
+    `Evidence quality: ${output?.metrics.evidence_coverage ?? 0}% positive evidence coverage; missing-item claims checked ${evidenceIds.length} evidence item(s).`,
+    `Missing-item scoring: recall ${formatMetricPercent(missingComparison.missingItemRecall)}, precision ${formatMetricPercent(missingComparison.missingItemPrecision)}, false positives ${formatList(missingComparison.falsePositiveMissingItemIds)}, false negatives ${formatList(missingComparison.falseNegativeMissingItemIds)}.`,
     `Recurring failure modes: ${failureTagIds.length === 0 ? "none captured" : failureTagIds.join(", ")}.`,
     `Owner/operator value: ${rating.wouldUseAgain ? "Reviewer would use the workflow again." : "Reviewer would not use the workflow again yet."}`,
     `Decision: ${rating.overallUsefulness >= 4 && rating.wouldUseAgain ? "continue validation" : "narrow or revise before broader pilot"}.`,
     "",
     "Open checklist items:",
-    missingItems.length === 0 ? "- None detected" : missingItems.map((item) => `- ${item}`).join("\n"),
+    missingItems.length === 0 ? "- None detected" : missingItems.map(formatMissingItem).join("\n"),
+    "",
+    `Evidence IDs checked: ${evidenceIds.join(", ") || "none"}.`,
     "",
     "Human boundary: this memo is a local validation artifact, not an accounting conclusion, client instruction, or acquisition memo."
   ].join("\n");
@@ -272,6 +285,7 @@ function normalizeBaseline(baseline) {
 function normalizeReviewerRating(rating) {
   const failureTagIds = (rating.failureTagIds || []).filter((tagId) => FAILURE_TAG_IDS.has(tagId));
   return {
+    ratingSource: normalizeRatingSource(rating.ratingSource),
     overallUsefulness: clampRating(rating.overallUsefulness),
     checklistTrust: clampRating(rating.checklistTrust),
     evidenceTraceability: clampRating(rating.evidenceTraceability),
@@ -298,6 +312,14 @@ function summarizeValidationMetrics({ run, reviewerRating, baseline }) {
   const estimatedSaved = Number(reviewerRating.timeSavedMinutes || 0);
   const manual = Number(baseline.manualPrepMinutes || 0);
   const reduction = manual === 0 ? 0 : Math.round((estimatedSaved / manual) * 100);
+  const missingItemComparison = compareMissingItems({
+    humanMissingItemIds: baseline.humanMissingItemIds,
+    agentMissingItemIds:
+      run?.output?.checklist
+        ?.filter((item) => item.status === "open")
+        .map((item) => item.checklistItemId)
+        .filter(Boolean) || []
+  });
 
   return {
     baselineMinutes: manual,
@@ -305,8 +327,48 @@ function summarizeValidationMetrics({ run, reviewerRating, baseline }) {
     estimatedReductionPercent: reduction,
     agentEstimatedMinutesSaved: run?.output?.metrics.estimated_minutes_saved || 0,
     evidenceCoverage: run?.output?.metrics.evidence_coverage || 0,
-    missingItemsCount: run?.output?.metrics.missing_items_count || 0
+    missingItemsCount: run?.output?.metrics.missing_items_count || 0,
+    missingItemRecall: missingItemComparison.missingItemRecall,
+    missingItemPrecision: missingItemComparison.missingItemPrecision,
+    missingItemComparison
   };
+}
+
+function compareMissingItems({ humanMissingItemIds = [], agentMissingItemIds = [] }) {
+  const human = new Set(humanMissingItemIds);
+  const agent = new Set(agentMissingItemIds);
+  const truePositiveMissingItemIds = [...agent].filter((itemId) => human.has(itemId));
+  const falsePositiveMissingItemIds = [...agent].filter((itemId) => !human.has(itemId));
+  const falseNegativeMissingItemIds = [...human].filter((itemId) => !agent.has(itemId));
+
+  return {
+    humanMissingItemIds: [...human],
+    agentMissingItemIds: [...agent],
+    truePositiveMissingItemIds,
+    falsePositiveMissingItemIds,
+    falseNegativeMissingItemIds,
+    missingItemRecall: human.size === 0 ? (agent.size === 0 ? 100 : 0) : Math.round((truePositiveMissingItemIds.length / human.size) * 100),
+    missingItemPrecision: agent.size === 0 ? (human.size === 0 ? 100 : 0) : Math.round((truePositiveMissingItemIds.length / agent.size) * 100)
+  };
+}
+
+function normalizeRatingSource(value) {
+  return RATING_SOURCES.has(value) ? value : "human_capture";
+}
+
+function formatMetricPercent(value) {
+  return Number.isFinite(value) ? `${value}%` : "n/a";
+}
+
+function formatList(values) {
+  return values.length === 0 ? "none" : values.join(", ");
+}
+
+function formatMissingItem(item) {
+  const support = item.claimSupport;
+  const checkedCount = support?.checkedEvidenceIds?.length || 0;
+  const matchedCount = support?.matchedEvidenceIds?.length || 0;
+  return `- ${item.checklistItemId}: ${item.item} (${support?.supportType || "unknown_support"}, checked ${checkedCount}, matched ${matchedCount})`;
 }
 
 function clampRating(value) {
@@ -314,4 +376,3 @@ function clampRating(value) {
   if (!Number.isFinite(number)) return 0;
   return Math.max(0, Math.min(5, Math.round(number)));
 }
-

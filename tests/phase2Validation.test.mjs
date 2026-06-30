@@ -17,11 +17,12 @@ test("Phase 2 contract and import docs define required acceptance criteria", asy
   const contract = await readFile("docs/phase2-validation-contract.md", "utf8");
   const importDoc = await readFile("docs/phase2-case-import-format.md", "utf8");
 
-  for (let index = 1; index <= 10; index += 1) {
+  for (let index = 1; index <= 12; index += 1) {
     assert.match(contract, new RegExp(`AC-P2-${index}`));
   }
   assert.match(importDoc, new RegExp(CASE_IMPORT_VERSION));
   assert.match(importDoc, /manualPrepMinutes/);
+  assert.match(importDoc, /ratingSource/);
   assert.match(importDoc, /reviewerRating/);
   assert.match(importDoc, /traceAnnotations/);
 });
@@ -35,6 +36,7 @@ test("bundled sample cases are valid anonymized Phase 2 imports", () => {
     assert.equal(validation.valid, true, validation.errors.join(" "));
     assert.equal(sample.importVersion, CASE_IMPORT_VERSION);
     assert.match(sample.clientName, /^Sample Client/);
+    assert.equal(sample.reviewerRating.ratingSource, "fixture_seed");
     assert.ok(sample.baseline.manualPrepMinutes > 0);
     assert.ok(sample.evidence.every((item) => !item.content.includes("@")));
   }
@@ -50,10 +52,16 @@ test("sample cases run end to end and produce validation records and operating m
     assert.equal(result.validationRecord.runId, result.run.id);
     assert.ok(result.validationRecord.baseline.manualPrepMinutes > 0);
     assert.ok(result.validationRecord.reviewerRating.ratingId);
+    assert.equal(result.validationRecord.reviewerRating.ratingSource, "fixture_seed");
+    assert.equal(result.validationRecord.metrics.missingItemRecall, 100);
+    assert.equal(result.validationRecord.metrics.missingItemPrecision, 100);
     assert.ok(result.validationRecord.traceAnnotations[0].runId === result.run.id);
     assert.match(result.memo, /Before\/After Operating Memo/);
     assert.match(result.memo, /Evidence quality:/);
+    assert.match(result.memo, /Rating source: fixture_seed/);
+    assert.match(result.memo, /Missing-item scoring:/);
     assert.ok(result.output.recommendations.every((item) => item.evidence_ids.length > 0));
+    assert.ok(result.output.checklist.every((item) => item.checklistItemId && item.claimSupport?.checkedEvidenceIds));
   }
 });
 
@@ -102,6 +110,7 @@ test("validation record captures baseline, reviewer rating, failure tags, and tr
       evidenceTraceability: 5,
       timeSavedMinutes: 19,
       wouldUseAgain: true,
+      ratingSource: "human_capture",
       failureTagIds: ["unsafe_draft"],
       notes: "Draft needs review but the packet is useful."
     },
@@ -111,6 +120,10 @@ test("validation record captures baseline, reviewer rating, failure tags, and tr
 
   assert.equal(record.baseline.manualPrepMinutes, 41);
   assert.equal(record.reviewerRating.overallUsefulness, 5);
+  assert.equal(record.reviewerRating.ratingSource, "human_capture");
+  assert.equal(record.metrics.missingItemRecall, 100);
+  assert.equal(record.metrics.missingItemPrecision, 100);
+  assert.deepEqual(record.metrics.missingItemComparison.falsePositiveMissingItemIds, []);
   assert.deepEqual(record.failureTagIds, ["unsafe_draft"]);
   assert.equal(record.traceAnnotations[0].caseId, caseRecord.id);
   assert.equal(record.traceAnnotations[0].runId, run.id);
@@ -130,4 +143,3 @@ test("required Phase 2 failure tags are exposed", () => {
     ]
   );
 });
-

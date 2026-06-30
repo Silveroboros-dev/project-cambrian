@@ -3,6 +3,7 @@ import { createInitialStore } from "./demoData.js";
 import { sampleCaseImports } from "./phase2SampleCases.js";
 
 const STORAGE_KEY = "agentops-core-store-v1";
+const FIXTURE_SAMPLE_CASE_IDS = new Set(sampleCaseImports.map((item) => item.sampleCaseId));
 
 export function loadStore() {
   const serialized = localStorage.getItem(STORAGE_KEY);
@@ -53,6 +54,7 @@ export function ensureStoreShape(store) {
   shaped.handoffRequests ||= [];
   shaped.validationCaseImports = sampleCaseImports;
   shaped.validationRecords ||= [];
+  shaped.validationRecords = shaped.validationRecords.map(normalizeValidationRecordShape);
   shaped.agentRuns ||= [];
   shaped.recommendations ||= [];
   shaped.reviewDecisions ||= [];
@@ -60,4 +62,22 @@ export function ensureStoreShape(store) {
   shaped.cases ||= [];
   shaped.agents = agentBacklog;
   return shaped;
+}
+
+function normalizeValidationRecordShape(record) {
+  if (!record?.reviewerRating || record.reviewerRating.ratingSource) {
+    return record;
+  }
+
+  const fixtureLike =
+    FIXTURE_SAMPLE_CASE_IDS.has(record.sampleCaseId) ||
+    String(record.runId || "").endsWith("_phase2_fixture");
+
+  return {
+    ...record,
+    reviewerRating: {
+      ...record.reviewerRating,
+      ratingSource: fixtureLike ? "fixture_seed" : "human_capture"
+    }
+  };
 }

@@ -46,6 +46,7 @@ It is not a production connector format. It is a manual, inspectable case packet
     }
   ],
   "reviewerRating": {
+    "ratingSource": "fixture_seed",
     "overallUsefulness": 4,
     "checklistTrust": 4,
     "evidenceTraceability": 5,
@@ -86,7 +87,22 @@ It is not a production connector format. It is a manual, inspectable case packet
 | `sourceSystem` | Source label such as `manual_anonymized_packet` or `phase2_fixture`. |
 | `baseline.humanMissingItemIds` | Missing checklist item IDs found by a human baseline. |
 | `reviewerRating` | Seeded or captured reviewer feedback. |
+| `reviewerRating.ratingSource` | `fixture_seed` for bundled demo ratings, `human_capture` for ratings entered during a reviewer session. |
 | `traceAnnotations` | Human notes attached to a case or run. |
+
+Fixture ratings are useful for demonstrating the loop, but they are not evidence of business value. Metrics must keep `fixture_seed` records separate from `human_capture` records.
+
+## Validation Metrics
+
+Agent checklist output must preserve `checklistItemId` so the validation record can compare:
+
+- `baseline.humanMissingItemIds`;
+- agent-detected missing checklist item IDs;
+- false-positive missing items;
+- false-negative missing items;
+- missing-item recall and precision.
+
+Missing-item claims are supported by absence from the checked evidence inventory, not by a single positive evidence document.
 
 ## Failure Tags
 
@@ -115,4 +131,3 @@ Do not include:
 - credentials, API tokens, or screenshots from real systems.
 
 Use synthetic names such as `Sample Client A` and rounded or fictional amounts. Preserve only enough structure to test document classification, checklist completeness, evidence links, and reviewer burden.
-

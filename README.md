@@ -62,6 +62,7 @@ The prototype proves the operating loop, not production readiness:
 - [Phase 2 demo script](docs/demo-script-phase2.md): stakeholder click path, talk track, expected questions, and next-step proposal.
 - [Phase 2 anonymized data request](docs/phase2-anonymized-data-request.md): one-page request for 3-5 friendly reviewer cases.
 - [Phase 2 internal demo review](docs/phase2-internal-demo-review.md): template for objections and go/no-go after an internal demo run.
+- [Phase 2 real validation loop goal](docs/goal-phase2-real-validation-loop.md): next `/goal` for paste-JSON import, human reviewer capture, export package, and loop stop conditions.
 - [Strategic queue map](docs/strategic-queue-map.md): stakeholder-facing vertical queue structure and activation boundaries.
 - [Queue evaluation rubric](docs/queue-evaluation-rubric.md): scoring tool for future queue activation.
 - [First slice](docs/first-slice.md): narrow Treuhand validation plan.
@@ -82,11 +83,13 @@ Use it to:
 
 The `Run all samples` action in the Validation tab replays the bundled sample cases locally and creates validation records and operating memos without external services.
 
+Bundled sample ratings are marked as `fixture_seed`. Reviewer-session ratings are marked as `human_capture`, and the metrics dashboard separates the two so demo fixtures do not count as proof of business value.
+
 The bundled fixtures live in [src/phase2SampleCases.js](src/phase2SampleCases.js). The validation logic lives in [src/validation.js](src/validation.js).
 
 ## Fail-Fast Validation
 
-The next useful proof requires 10-20 anonymized Treuhand cases from a pilot accounting firm or another accounting workflow owner.
+The next useful proof requires 3-5 anonymized Treuhand cases from a friendly reviewer, pilot accounting firm, or another accounting workflow owner. If those cases show reviewer trust and measurable lift, expand to 10-20 cases.
 
 For each case, collect:
 

@@ -27,7 +27,7 @@ export function createInitialStore() {
         type: "document",
         title: "Client ABC bank statement March 2026",
         content:
-          "Bank statement for period 2026-03. IBAN CH93 0076 2011 6238 5295 7. Opening balance CHF 24,100. Closing balance CHF 31,870. Transactions dated 2026-03-01 to 2026-03-31."
+          "Bank statement for period 2026-03. IBAN redacted. Opening balance CHF 24,100. Closing balance CHF 31,870. Transactions dated 2026-03-01 to 2026-03-31."
       },
       {
         id: "ev_sales_001",

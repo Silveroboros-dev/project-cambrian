@@ -86,6 +86,7 @@ export const sampleCaseImports = [
       }
     ],
     reviewerRating: {
+      ratingSource: "fixture_seed",
       overallUsefulness: 4,
       checklistTrust: 4,
       evidenceTraceability: 5,
@@ -187,6 +188,7 @@ export const sampleCaseImports = [
       }
     ],
     reviewerRating: {
+      ratingSource: "fixture_seed",
       overallUsefulness: 3,
       checklistTrust: 3,
       evidenceTraceability: 4,
@@ -212,4 +214,3 @@ export function assertSampleFailureTagsAreKnown() {
     (sample.reviewerRating?.failureTagIds || []).every((tagId) => known.has(tagId))
   );
 }
-

@@ -150,32 +150,84 @@ const documentRules = [
   {
     type: "bank_statement",
     label: "Bank statement",
-    keywords: ["bank statement", "iban", "opening balance", "closing balance", "camt", "account statement"]
+    keywords: [
+      "bank statement",
+      "iban",
+      "opening balance",
+      "closing balance",
+      "camt",
+      "account statement",
+      "bankauszug",
+      "kontoauszug"
+    ]
   },
   {
     type: "sales_invoice",
     label: "Sales invoice",
-    keywords: ["sales invoice", "customer invoice", "invoice to", "revenue", "debtor", "accounts receivable"]
+    keywords: [
+      "sales invoice",
+      "customer invoice",
+      "invoice to",
+      "revenue",
+      "debtor",
+      "accounts receivable",
+      "debitoren",
+      "debitorenliste",
+      "ausgangsrechnung"
+    ]
   },
   {
     type: "purchase_invoice",
     label: "Purchase invoice",
-    keywords: ["supplier invoice", "purchase invoice", "vendor", "creditor", "accounts payable", "bill from"]
+    keywords: [
+      "supplier invoice",
+      "purchase invoice",
+      "vendor",
+      "creditor",
+      "accounts payable",
+      "bill from",
+      "kreditoren",
+      "kreditorenrechnung",
+      "eingangsrechnung",
+      "lieferantenrechnung"
+    ]
   },
   {
     type: "expense_receipt",
     label: "Expense receipt",
-    keywords: ["receipt", "expense", "card payment", "reimbursement", "meal", "travel"]
+    keywords: ["receipt", "expense", "card payment", "reimbursement", "meal", "travel", "spesen", "spesenbeleg", "quittung"]
   },
   {
     type: "payroll_summary",
     label: "Payroll summary",
-    keywords: ["payroll", "salary", "social security", "ahv", "employee", "wage"]
+    keywords: [
+      "payroll",
+      "salary",
+      "social security",
+      "ahv",
+      "employee",
+      "wage",
+      "lohnlauf",
+      "lohnabrechnung",
+      "lohnjournal",
+      "sozialversicherungen"
+    ]
   },
   {
     type: "vat_report",
     label: "VAT report",
-    keywords: ["vat", "mwst", "ust", "quarterly filing", "tax return", "input tax", "output tax"]
+    keywords: [
+      "vat",
+      "mwst",
+      "mwst-abrechnung",
+      "mwst abrechnung",
+      "mehrwertsteuer",
+      "ust",
+      "quarterly filing",
+      "tax return",
+      "input tax",
+      "output tax"
+    ]
   }
 ];
 
@@ -315,17 +367,29 @@ export function runTreuhandAgent(caseRecord, checklist = defaultChecklist) {
   }));
 
   const presentTypes = new Set(inventory.map((item) => item.document_type));
+  const checkedEvidenceIds = inventory.map((item) => item.evidence_id);
   const checklistOutput = checklist.map((item) => {
     const present = item.aliases.some((alias) => presentTypes.has(alias));
+    const evidenceIds = inventory.filter((doc) => item.aliases.includes(doc.document_type)).map((doc) => doc.evidence_id);
     return {
+      checklistItemId: item.id,
       item: item.label,
+      required: item.required !== false,
       status: present ? "complete" : "open",
       owner_role: present ? "accountant" : "client_manager",
-      evidence_ids: inventory.filter((doc) => item.aliases.includes(doc.document_type)).map((doc) => doc.evidence_id)
+      evidence_ids: evidenceIds,
+      claimSupport: {
+        claimType: present ? "checklist_item_present" : "missing_checklist_item",
+        checklistItemId: item.id,
+        supportType: present ? "matched_evidence" : "absence_from_checked_inventory",
+        checkedEvidenceIds,
+        matchedEvidenceIds: evidenceIds
+      }
     };
   });
 
   const missingItems = checklistOutput.filter((item) => item.status === "open");
+  const missingChecklistItemIds = missingItems.map((item) => item.checklistItemId);
   const duplicateTitles = findDuplicateTitles(evidenceItems);
 
   for (const duplicateTitle of duplicateTitles) {
@@ -354,9 +418,11 @@ export function runTreuhandAgent(caseRecord, checklist = defaultChecklist) {
         : "No missing-document reminder needed; send the case to accountant review.",
     rationale: {
       missing_items_count: missingItems.length,
+      missing_checklist_item_ids: missingChecklistItemIds,
       completeness_score: completenessScore,
       warning_count: warnings.length
     },
+    checklistItemIds: missingChecklistItemIds,
     confidence: missingItems.length > 0 ? 0.86 : 0.78,
     requires_human_approval: true,
     evidence_ids: inventory.map((item) => item.evidence_id)

@@ -37,6 +37,8 @@ Every Phase 2 validation artifact must be scoped by explicit identity keys:
 ## Truth Labels
 
 - Sample fixtures are anonymized demo inputs, not customer data.
+- Fixture-seeded reviewer ratings are demo labels, not proof from a reviewer session.
+- Human-captured reviewer ratings must be distinguishable from fixture-seeded ratings.
 - Imported cases are candidate validation cases, not production records.
 - Baseline time is human-reported operating evidence, not measured telemetry.
 - Agent outputs are deterministic recommendations requiring review.
@@ -80,6 +82,8 @@ The validation kit must include at least two anonymized Treuhand/accounting samp
 
 The Treuhand agent must use the active case's configured checklist when available. Changing checklist items must affect missing-item detection.
 
+Checklist output, recommendations, gap findings, and validation metrics must preserve `checklistItemId` so the agent can be scored against `baseline.humanMissingItemIds`.
+
 ### AC-P2-4: Baseline Capture
 
 The validation record must capture baseline manual preparation minutes and manual handoff count for the case.
@@ -100,6 +104,8 @@ The validation workflow must capture a trace annotation scoped to the active `ca
 
 The validation workflow must produce a before/after operating memo using captured baseline data, agent output, reviewer rating, failure tags, and evidence-linked run metrics.
 
+The memo must show rating source and missing-item recall/precision. Missing-item claims must be framed as absence from the checked evidence inventory.
+
 ### AC-P2-9: Local-Only Boundary
 
 Phase 2 validation must not require a database, LLM call, production connector, real authentication system, external service, or new dependency.
@@ -108,3 +114,10 @@ Phase 2 validation must not require a database, LLM call, production connector, 
 
 Automated tests and smoke checks must prove that the import format, sample cases, checklist behavior, reviewer capture, failure tags, trace annotation, operating memo, and UI entry point exist.
 
+### AC-P2-11: Swiss/German Vocabulary
+
+The deterministic classifier must recognize common Swiss Treuhand packet terms, including `Bankauszug`, `Kontoauszug`, `MWST-Abrechnung`, `Kreditorenrechnung`, `Debitorenliste`, `Ausgangsrechnung`, `Eingangsrechnung`, `Lohnabrechnung`, `Spesenbeleg`, and `Quittung`.
+
+### AC-P2-12: Fixture And Human Metrics Separation
+
+Metrics must separate `fixture_seed` validation records from `human_capture` validation records. Fixture replay can demonstrate workflow shape, but only human-captured reviewer sessions count as evidence of business value.

@@ -36,6 +36,7 @@ Commit or snapshot:
 | Objection | Severity | Evidence | Action |
 |---|---|---|---|
 | Synthetic cases are not proof of value. | High | Demo uses bundled fixtures only. | Ask for 3-5 real anonymized cases. |
+| Fixture ratings can look like proof. | High | `Run all samples` creates `fixture_seed` records. | Confirm Metrics separates fixture records from `human_capture` records. |
 | Local storage is not production-ready. | Medium | Current runtime is `localStorage`. | Keep as explicit Phase 2 boundary; do not add DB yet. |
 | Checklist may be too firm-specific. | High | Sample B uses custom management export item. | Validate with real checklist variation. |
 | Reviewer capture may be too manual. | Medium | Ratings and failure tags require human entry. | Keep manual until repeated reviewer friction is observed. |
@@ -67,4 +68,3 @@ Choose one:
 2.
 3.
 ```
-
