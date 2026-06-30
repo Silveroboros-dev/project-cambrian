@@ -25,7 +25,8 @@ It is not a production connector format. It is a manual, inspectable case packet
   "baseline": {
     "manualPrepMinutes": 52,
     "manualHandoffCount": 3,
-    "humanMissingItemIds": ["vat_report"]
+    "humanMissingItemIds": ["vat_report"],
+    "humanMissingItemIdsCaptured": true
   },
   "checklist": [
     {
@@ -86,6 +87,7 @@ It is not a production connector format. It is a manual, inspectable case packet
 | `sampleCaseId` | Fixture identity when bundled in the repo. |
 | `sourceSystem` | Source label such as `manual_anonymized_packet` or `phase2_fixture`. |
 | `baseline.humanMissingItemIds` | Missing checklist item IDs found by a human baseline. |
+| `baseline.humanMissingItemIdsCaptured` | `true` when the reviewer has explicitly confirmed the human missing-item baseline, including an empty list. |
 | `reviewerRating` | Seeded or captured reviewer feedback. |
 | `reviewerRating.ratingSource` | `fixture_seed` for bundled demo ratings, `human_capture` for ratings entered during a reviewer session. |
 | `traceAnnotations` | Human notes attached to a case or run. |

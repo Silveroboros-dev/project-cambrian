@@ -87,6 +87,53 @@ test("creates checklist, missing items, recommendation, and metrics", () => {
   assert.ok(output.metrics.estimated_minutes_saved > 0);
 });
 
+test("detects custom checklist items from alias or label text", () => {
+  const output = runTreuhandAgent(
+    {
+      ...baseCase,
+      evidence: [
+        {
+          id: "ev_management_export",
+          type: "document",
+          title: "Management accounts export March 2026",
+          content: "Management accounts export for 2026-03 with reviewed trial balance summary."
+        }
+      ]
+    },
+    [
+      {
+        id: "management_accounts_export",
+        label: "Management accounts export",
+        required: true,
+        aliases: ["management_report", "management_accounts_export"]
+      }
+    ]
+  );
+
+  assert.equal(output.checklist[0].status, "complete");
+  assert.deepEqual(output.checklist[0].evidence_ids, ["ev_management_export"]);
+  assert.equal(output.metrics.missing_items_count, 0);
+});
+
+test("does not count absent optional checklist items as missing", () => {
+  const output = runTreuhandAgent(baseCase, [
+    ...defaultChecklist,
+    {
+      id: "management_accounts_export",
+      label: "Management accounts export",
+      required: false,
+      aliases: ["management_report", "management_accounts_export"]
+    }
+  ]);
+
+  const optional = output.checklist.find((item) => item.checklistItemId === "management_accounts_export");
+  assert.equal(optional.status, "optional_absent");
+  assert.equal(optional.required, false);
+  assert.equal(output.metrics.missing_items_count, 2);
+  assert.deepEqual(output.recommendations[0].checklistItemIds, ["purchase_invoice", "vat_report"]);
+  assert.equal(output.metrics.completeness_score, 60);
+});
+
 test("links facts and recommendations to evidence", () => {
   const output = runTreuhandAgent(baseCase);
 

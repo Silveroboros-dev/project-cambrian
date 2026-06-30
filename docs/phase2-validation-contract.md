@@ -137,3 +137,23 @@ Validation package export must run a local privacy check and block export when t
 ### AC-P2-16: Prompt-Injection Taint
 
 Context packets with prompt-injection text must carry a `taint` marker with `promptInjectionSuspected: true` and `instructionFollowingForbidden: true`. The security agent and validation package export must preserve that taint marker.
+
+### AC-P2-17: Uncaptured Reviewer State
+
+Temporary UI records must not claim `human_capture`. Before a reviewer saves validation evidence, the memo must either stay unavailable or label rating source as `not_captured`.
+
+### AC-P2-18: Custom Checklist Present Detection
+
+Configured checklist items must be detectable as present when a conservative alias or label match appears in evidence title/content, even if the deterministic classifier does not emit a built-in document type for that custom item.
+
+### AC-P2-19: Optional Checklist Semantics
+
+Absent optional checklist items must not count as required missing items, must not reduce required completeness, and must not appear in draft missing-document reminders.
+
+### AC-P2-20: Human Baseline Scoring Gate
+
+Missing-item recall and precision must only be scored when human baseline missing item IDs are explicitly captured. Otherwise the memo and metrics must show missing-item scoring as unscored.
+
+### AC-P2-21: Export Guard In Core Function
+
+`createValidationPackage()` must reject validation records whose reviewer rating source is not `human_capture`, so fixture or uncaptured records cannot be exported as operating evidence by bypassing the UI.

@@ -361,26 +361,30 @@ export function runTreuhandAgent(caseRecord, checklist = defaultChecklist) {
   const presentTypes = new Set(inventory.map((item) => item.document_type));
   const checkedEvidenceIds = inventory.map((item) => item.evidence_id);
   const checklistOutput = checklist.map((item) => {
-    const present = item.aliases.some((alias) => presentTypes.has(alias));
-    const evidenceIds = inventory.filter((doc) => item.aliases.includes(doc.document_type)).map((doc) => doc.evidence_id);
+    const required = item.required !== false;
+    const classifiedEvidenceIds = inventory.filter((doc) => item.aliases.includes(doc.document_type)).map((doc) => doc.evidence_id);
+    const textEvidenceIds = findChecklistTextMatches(evidenceItems, item);
+    const evidenceIds = unique([...classifiedEvidenceIds, ...textEvidenceIds]);
+    const present = item.aliases.some((alias) => presentTypes.has(alias)) || textEvidenceIds.length > 0;
+    const status = present ? "complete" : required ? "open" : "optional_absent";
     return {
       checklistItemId: item.id,
       item: item.label,
-      required: item.required !== false,
-      status: present ? "complete" : "open",
+      required,
+      status,
       owner_role: present ? "accountant" : "client_manager",
       evidence_ids: evidenceIds,
       claimSupport: {
-        claimType: present ? "checklist_item_present" : "missing_checklist_item",
+        claimType: present ? "checklist_item_present" : required ? "missing_checklist_item" : "optional_checklist_item_absent",
         checklistItemId: item.id,
-        supportType: present ? "matched_evidence" : "absence_from_checked_inventory",
+        supportType: present ? "matched_evidence" : required ? "absence_from_checked_inventory" : "optional_absence",
         checkedEvidenceIds,
         matchedEvidenceIds: evidenceIds
       }
     };
   });
 
-  const missingItems = checklistOutput.filter((item) => item.status === "open");
+  const missingItems = checklistOutput.filter((item) => item.required && item.status === "open");
   const missingChecklistItemIds = missingItems.map((item) => item.checklistItemId);
   const duplicateTitles = findDuplicateTitles(evidenceItems);
 
@@ -393,9 +397,13 @@ export function runTreuhandAgent(caseRecord, checklist = defaultChecklist) {
   }
 
   const completenessScore =
-    checklistOutput.length === 0
+    checklistOutput.filter((item) => item.required).length === 0
       ? 0
-      : Math.round((checklistOutput.filter((item) => item.status === "complete").length / checklistOutput.length) * 100);
+      : Math.round(
+          (checklistOutput.filter((item) => item.required && item.status === "complete").length /
+            checklistOutput.filter((item) => item.required).length) *
+            100
+        );
 
   const draftEmail = buildReminderEmail(caseRecord, missingItems);
   const reviewPack = buildReviewPack(caseRecord, inventory, missingItems, warnings, completenessScore);
@@ -495,6 +503,32 @@ function calculateEvidenceCoverage(facts, recommendations) {
       ? 1
       : recommendations.filter((rec) => rec.evidence_ids?.length > 0).length / recommendations.length;
   return Math.round(((factCoverage + recommendationCoverage) / 2) * 100);
+}
+
+function findChecklistTextMatches(evidenceItems, checklistItem) {
+  const terms = unique([checklistItem.id, checklistItem.label, ...(checklistItem.aliases || [])])
+    .map(normalizeChecklistTerm)
+    .filter((term) => term.length >= 4);
+
+  return evidenceItems
+    .filter((evidence) => {
+      const haystack = normalizeChecklistTerm(`${evidence.title || ""} ${evidence.content || ""}`);
+      return terms.some((term) => haystack.includes(term));
+    })
+    .map((evidence) => evidence.id);
+}
+
+function normalizeChecklistTerm(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function unique(values) {
+  return [...new Set(values.filter(Boolean))];
 }
 
 function findDuplicateTitles(evidenceItems) {

@@ -114,3 +114,14 @@ The first validation is useful only if the reviewer can answer:
 ## Important Boundary
 
 This is not production software. It does not send emails, file taxes, produce accounting conclusions, connect to systems, or use real customer data.
+
+The local privacy gate is a backstop, not an anonymization service. Please check each packet before import:
+
+- no real firm names;
+- no real person names;
+- no real client emails;
+- no real account numbers;
+- no real UID, tax, AHV, or social-security IDs;
+- no unredacted payroll details linked to people;
+- no screenshots from production systems;
+- no production credentials, private links, or API tokens.

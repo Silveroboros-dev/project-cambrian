@@ -24,12 +24,13 @@ test("Phase 2 contract and import docs define required acceptance criteria", asy
   const importDoc = await readFile("docs/phase2-case-import-format.md", "utf8");
   const app = await readFile("src/app.js", "utf8");
 
-  for (let index = 1; index <= 16; index += 1) {
+  for (let index = 1; index <= 21; index += 1) {
     assert.match(contract, new RegExp(`AC-P2-${index}`));
   }
   assert.match(importDoc, new RegExp(CASE_IMPORT_VERSION));
   assert.match(importDoc, new RegExp(VALIDATION_PACKAGE_VERSION));
   assert.match(importDoc, /manualPrepMinutes/);
+  assert.match(importDoc, /humanMissingItemIdsCaptured/);
   assert.match(importDoc, /ratingSource/);
   assert.match(importDoc, /reviewerRating/);
   assert.match(importDoc, /traceAnnotations/);
@@ -49,6 +50,7 @@ test("bundled sample cases are valid anonymized Phase 2 imports", () => {
     assert.match(sample.clientName, /^Sample Client/);
     assert.equal(sample.reviewerRating.ratingSource, "fixture_seed");
     assert.ok(sample.baseline.manualPrepMinutes > 0);
+    assert.equal(sample.baseline.humanMissingItemIdsCaptured ?? true, true);
     assert.ok(sample.evidence.every((item) => !item.content.includes("@")));
   }
 });
@@ -112,6 +114,7 @@ test("sample cases run end to end and produce validation records and operating m
     assert.ok(result.validationRecord.baseline.manualPrepMinutes > 0);
     assert.ok(result.validationRecord.reviewerRating.ratingId);
     assert.equal(result.validationRecord.reviewerRating.ratingSource, "fixture_seed");
+    assert.equal(result.validationRecord.baseline.humanMissingItemIdsCaptured, true);
     assert.equal(result.validationRecord.metrics.missingItemRecall, 100);
     assert.equal(result.validationRecord.metrics.missingItemPrecision, 100);
     assert.ok(result.validationRecord.traceAnnotations[0].runId === result.run.id);
@@ -197,6 +200,92 @@ test("validation package export includes scoped artifacts, taint, and privacy ga
   assert.ok(privacy.issues.some((issue) => issue.id === "configured_private_party_term"));
 });
 
+test("memo before reviewer capture is not labeled human_capture", () => {
+  const caseRecord = normalizeCaseImport(
+    {
+      ...sampleCaseImports[0],
+      sampleCaseId: "manual_no_capture_packet",
+      caseId: "case_manual_no_capture_packet"
+    },
+    "2026-06-30T00:00:00.000Z"
+  );
+  const output = runTreuhandAgent(caseRecord, getCaseChecklist(caseRecord));
+  const run = {
+    id: "run_uncaptured_memo",
+    caseId: caseRecord.id,
+    output
+  };
+  const record = createValidationRecord({
+    caseRecord,
+    run,
+    baseline: caseRecord.validation.baseline,
+    reviewerRating: {},
+    traceNote: "No reviewer capture yet.",
+    createdAt: "2026-06-30T00:00:00.000Z"
+  });
+
+  assert.equal(record.reviewerRating.ratingSource, "not_captured");
+  assert.match(record.memo, /Rating source: not_captured/);
+  assert.doesNotMatch(record.memo, /Rating source: human_capture/);
+});
+
+test("missing-item scoring is unscored when human baseline is not captured", () => {
+  const caseRecord = normalizeCaseImport(
+    {
+      ...sampleCaseImports[0],
+      sampleCaseId: "manual_no_ground_truth_packet",
+      caseId: "case_manual_no_ground_truth_packet",
+      baseline: {
+        manualPrepMinutes: 40,
+        manualHandoffCount: 2
+      }
+    },
+    "2026-06-30T00:00:00.000Z"
+  );
+  const output = runTreuhandAgent(caseRecord, getCaseChecklist(caseRecord));
+  const run = {
+    id: "run_unscored_missing_items",
+    caseId: caseRecord.id,
+    output
+  };
+  const record = createValidationRecord({
+    caseRecord,
+    run,
+    baseline: caseRecord.validation.baseline,
+    reviewerRating: {
+      ratingSource: "human_capture",
+      overallUsefulness: 4,
+      checklistTrust: 4,
+      evidenceTraceability: 4,
+      timeSavedMinutes: 12,
+      wouldUseAgain: true
+    },
+    traceNote: "Reviewer did not provide human missing item IDs.",
+    createdAt: "2026-06-30T00:00:00.000Z"
+  });
+
+  assert.equal(record.baseline.humanMissingItemIdsCaptured, false);
+  assert.equal(record.metrics.missingItemRecall, null);
+  assert.equal(record.metrics.missingItemPrecision, null);
+  assert.equal(record.metrics.missingItemComparison.scored, false);
+  assert.match(record.memo, /Missing-item scoring: not scored/);
+});
+
+test("validation package export rejects non-human-captured validation records", () => {
+  const result = runValidationSample(sampleCaseImports[0], "2026-06-30T00:00:00.000Z");
+
+  assert.equal(result.validationRecord.reviewerRating.ratingSource, "fixture_seed");
+  assert.throws(
+    () =>
+      createValidationPackage({
+        caseRecord: result.caseRecord,
+        run: result.run,
+        validationRecord: result.validationRecord
+      }),
+    /human_capture/
+  );
+});
+
 test("configured checklist affects missing-item detection", () => {
   const customSample = sampleCaseImports.find((sample) =>
     sample.checklist.some((item) => item.id === "management_accounts_export")
@@ -234,7 +323,8 @@ test("validation record captures baseline, reviewer rating, failure tags, and tr
     baseline: {
       manualPrepMinutes: 41,
       manualHandoffCount: 2,
-      humanMissingItemIds: ["vat_report"]
+      humanMissingItemIds: ["vat_report"],
+      humanMissingItemIdsCaptured: true
     },
     reviewerRating: {
       overallUsefulness: 5,

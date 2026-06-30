@@ -38,7 +38,7 @@ export const FAILURE_TAGS = [
 ];
 
 const FAILURE_TAG_IDS = new Set(FAILURE_TAGS.map((tag) => tag.id));
-const RATING_SOURCES = new Set(["fixture_seed", "human_capture"]);
+const RATING_SOURCES = new Set(["fixture_seed", "human_capture", "not_captured"]);
 
 export function validateCaseImport(record) {
   const errors = [];
@@ -89,7 +89,7 @@ export function validateCaseImport(record) {
   }
 
   if (record.reviewerRating?.ratingSource && !RATING_SOURCES.has(record.reviewerRating.ratingSource)) {
-    errors.push("reviewerRating.ratingSource must be fixture_seed or human_capture.");
+    errors.push("reviewerRating.ratingSource must be fixture_seed, human_capture, or not_captured.");
   }
 
   return { valid: errors.length === 0, errors };
@@ -254,6 +254,9 @@ export function createValidationPackage({
   if (!validationRecord) {
     throw new Error("Validation package requires a validation record.");
   }
+  if (validationRecord.reviewerRating?.ratingSource !== "human_capture") {
+    throw new Error("Validation package export requires human_capture rating.");
+  }
 
   const memo =
     validationRecord.memo ||
@@ -324,7 +327,8 @@ export function buildOperatingMemo({ caseRecord, run, validationRecord }) {
   const missingItems = output?.checklist?.filter((item) => item.status === "open") || [];
   const missingComparison = compareMissingItems({
     humanMissingItemIds: baseline.humanMissingItemIds,
-    agentMissingItemIds: missingItems.map((item) => item.checklistItemId).filter(Boolean)
+    agentMissingItemIds: missingItems.map((item) => item.checklistItemId).filter(Boolean),
+    humanMissingItemIdsCaptured: baseline.humanMissingItemIdsCaptured
   });
   const reviewBurden =
     rating.failureTagIds.length === 0
@@ -343,7 +347,9 @@ export function buildOperatingMemo({ caseRecord, run, validationRecord }) {
     `Hours or minutes saved: ${rating.timeSavedMinutes} minutes estimated by reviewer.`,
     `Review burden created: ${reviewBurden}`,
     `Evidence quality: ${output?.metrics.evidence_coverage ?? 0}% positive evidence coverage; missing-item claims checked ${evidenceIds.length} evidence item(s).`,
-    `Missing-item scoring: recall ${formatMetricPercent(missingComparison.missingItemRecall)}, precision ${formatMetricPercent(missingComparison.missingItemPrecision)}, false positives ${formatList(missingComparison.falsePositiveMissingItemIds)}, false negatives ${formatList(missingComparison.falseNegativeMissingItemIds)}.`,
+    missingComparison.scored
+      ? `Missing-item scoring: recall ${formatMetricPercent(missingComparison.missingItemRecall)}, precision ${formatMetricPercent(missingComparison.missingItemPrecision)}, false positives ${formatList(missingComparison.falsePositiveMissingItemIds)}, false negatives ${formatList(missingComparison.falseNegativeMissingItemIds)}.`
+      : "Missing-item scoring: not scored - no human baseline missing item IDs captured.",
     `Recurring failure modes: ${failureTagIds.length === 0 ? "none captured" : failureTagIds.join(", ")}.`,
     `Owner/operator value: ${rating.wouldUseAgain ? "Reviewer would use the workflow again." : "Reviewer would not use the workflow again yet."}`,
     `Decision: ${rating.overallUsefulness >= 4 && rating.wouldUseAgain ? "continue validation" : "narrow or revise before broader pilot"}.`,
@@ -358,10 +364,16 @@ export function buildOperatingMemo({ caseRecord, run, validationRecord }) {
 }
 
 function normalizeBaseline(baseline) {
+  const hasHumanMissingItemIds = Object.prototype.hasOwnProperty.call(baseline || {}, "humanMissingItemIds");
+  const captured =
+    typeof baseline.humanMissingItemIdsCaptured === "boolean"
+      ? baseline.humanMissingItemIdsCaptured
+      : hasHumanMissingItemIds;
   return {
     manualPrepMinutes: Math.max(0, Number(baseline.manualPrepMinutes || 0)),
     manualHandoffCount: Math.max(0, Number(baseline.manualHandoffCount || 0)),
-    humanMissingItemIds: Array.isArray(baseline.humanMissingItemIds) ? baseline.humanMissingItemIds : []
+    humanMissingItemIds: Array.isArray(baseline.humanMissingItemIds) ? baseline.humanMissingItemIds : [],
+    humanMissingItemIdsCaptured: captured
   };
 }
 
@@ -401,7 +413,8 @@ function summarizeValidationMetrics({ run, reviewerRating, baseline }) {
       run?.output?.checklist
         ?.filter((item) => item.status === "open")
         .map((item) => item.checklistItemId)
-        .filter(Boolean) || []
+        .filter(Boolean) || [],
+    humanMissingItemIdsCaptured: baseline.humanMissingItemIdsCaptured
   });
 
   return {
@@ -417,14 +430,28 @@ function summarizeValidationMetrics({ run, reviewerRating, baseline }) {
   };
 }
 
-function compareMissingItems({ humanMissingItemIds = [], agentMissingItemIds = [] }) {
+function compareMissingItems({ humanMissingItemIds = [], agentMissingItemIds = [], humanMissingItemIdsCaptured = false }) {
   const human = new Set(humanMissingItemIds);
   const agent = new Set(agentMissingItemIds);
   const truePositiveMissingItemIds = [...agent].filter((itemId) => human.has(itemId));
   const falsePositiveMissingItemIds = [...agent].filter((itemId) => !human.has(itemId));
   const falseNegativeMissingItemIds = [...human].filter((itemId) => !agent.has(itemId));
 
+  if (!humanMissingItemIdsCaptured) {
+    return {
+      scored: false,
+      humanMissingItemIds: [...human],
+      agentMissingItemIds: [...agent],
+      truePositiveMissingItemIds,
+      falsePositiveMissingItemIds: [],
+      falseNegativeMissingItemIds: [],
+      missingItemRecall: null,
+      missingItemPrecision: null
+    };
+  }
+
   return {
+    scored: true,
     humanMissingItemIds: [...human],
     agentMissingItemIds: [...agent],
     truePositiveMissingItemIds,
@@ -436,7 +463,7 @@ function compareMissingItems({ humanMissingItemIds = [], agentMissingItemIds = [
 }
 
 function normalizeRatingSource(value) {
-  return RATING_SOURCES.has(value) ? value : "human_capture";
+  return RATING_SOURCES.has(value) ? value : "not_captured";
 }
 
 function formatMetricPercent(value) {

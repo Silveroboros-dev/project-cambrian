@@ -711,7 +711,8 @@ function handleValidationSubmit(event) {
   const baseline = {
     manualPrepMinutes: Number(formData.get("manualPrepMinutes")),
     manualHandoffCount: Number(formData.get("manualHandoffCount")),
-    humanMissingItemIds: caseRecord.validation?.baseline?.humanMissingItemIds || []
+    humanMissingItemIds: parseMissingItemIds(formData.get("humanMissingItemIds")),
+    humanMissingItemIdsCaptured: true
   };
   const reviewerRating = {
     ratingSource: "human_capture",
@@ -1036,6 +1037,10 @@ function renderValidationCaptureForm(caseRecord, latestRun, latestRecord) {
           <input name="manualHandoffCount" type="number" min="0" step="1" value="${escapeHtml(baseline.manualHandoffCount ?? 0)}" required />
         </label>
       </div>
+      <label>
+        Human-found missing checklist item IDs
+        <input name="humanMissingItemIds" value="${escapeHtml((baseline.humanMissingItemIds || []).join(", "))}" placeholder="vat_report, payroll_summary" />
+      </label>
       <div class="form-row">
         <label>
           Usefulness
@@ -1335,6 +1340,13 @@ function calculateWouldUseAgainRate(records) {
   if (records.length === 0) return null;
   const positive = records.filter((record) => record.reviewerRating?.wouldUseAgain).length;
   return Math.round((positive / records.length) * 100);
+}
+
+function parseMissingItemIds(value) {
+  return String(value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function formatTime(value) {
