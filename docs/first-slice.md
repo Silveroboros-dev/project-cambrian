@@ -26,6 +26,8 @@ It intentionally excludes databases, OCR, production auth, cloud storage, LLM ca
 
 Ask 4Trade for 10 anonymized monthly or quarterly document-intake cases.
 
+Use the versioned [Phase 2 case import format](phase2-case-import-format.md) for each anonymized packet.
+
 For each case:
 
 1. record current manual prep time;

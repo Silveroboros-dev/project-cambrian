@@ -5,6 +5,7 @@ import {
   runDataIngestionAgent,
   runSecurityAgent
 } from "./controlAgents.js";
+import { sampleCaseImports } from "./phase2SampleCases.js";
 
 export function createInitialStore() {
   const caseId = "case_demo_march_2026";
@@ -74,6 +75,8 @@ export function createInitialStore() {
     cadenceNudges: cadence.cadenceNudges,
     memoryCandidates: [],
     handoffRequests: [],
+    validationCaseImports: sampleCaseImports,
+    validationRecords: [],
     agentRuns: [],
     recommendations: [],
     reviewDecisions: [],

@@ -1,5 +1,6 @@
 import { agentBacklog } from "./agent.js";
 import { createInitialStore } from "./demoData.js";
+import { sampleCaseImports } from "./phase2SampleCases.js";
 
 const STORAGE_KEY = "agentops-core-store-v1";
 
@@ -50,6 +51,8 @@ export function ensureStoreShape(store) {
   shaped.cadenceNudges ||= [];
   shaped.memoryCandidates ||= [];
   shaped.handoffRequests ||= [];
+  shaped.validationCaseImports = sampleCaseImports;
+  shaped.validationRecords ||= [];
   shaped.agentRuns ||= [];
   shaped.recommendations ||= [];
   shaped.reviewDecisions ||= [];

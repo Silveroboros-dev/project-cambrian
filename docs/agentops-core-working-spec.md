@@ -709,6 +709,11 @@ Add:
 - failure reason tags;
 - baseline time capture.
 
+Phase 2 implementation contract:
+
+- [Phase 2 validation contract](phase2-validation-contract.md);
+- [Phase 2 case import format](phase2-case-import-format.md).
+
 Phase 2 must produce a before/after operating memo rather than a larger architecture.
 
 Minimum evidence:

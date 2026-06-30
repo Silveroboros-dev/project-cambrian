@@ -258,6 +258,14 @@ h4 {
   gap: 14px;
 }
 
+.validation-split {
+  margin-top: 14px;
+}
+
+.two-col-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .subpanel {
   min-width: 0;
   padding: 16px;
@@ -270,10 +278,60 @@ h4 {
   margin-top: 14px;
 }
 
-.evidence-form {
+.evidence-form,
+.validation-form {
   display: grid;
   gap: 10px;
   margin-bottom: 14px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+}
+
+.checkbox-label input {
+  width: auto;
+}
+
+.tag-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.tag-fieldset legend {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 760;
+}
+
+.tag-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.tag-checkbox {
+  align-items: flex-start;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.64);
+}
+
+.tag-checkbox strong,
+.tag-checkbox small {
+  display: block;
+}
+
+.tag-checkbox small {
+  color: var(--muted);
+  overflow-wrap: anywhere;
 }
 
 label {
@@ -355,6 +413,11 @@ textarea {
   font-weight: 750;
 }
 
+.warning-tag {
+  border-color: rgba(154, 106, 23, 0.45);
+  color: var(--amber);
+}
+
 .severity-high {
   border-color: rgba(158, 47, 47, 0.45);
 }
@@ -422,6 +485,10 @@ pre {
   white-space: pre-wrap;
 }
 
+.memo-output {
+  max-height: 540px;
+}
+
 .table-shell {
   overflow-x: auto;
   border: 1px solid var(--border);
@@ -477,6 +544,8 @@ tr:last-child td {
   .summary-grid,
   .run-summary,
   .control-grid,
+  .two-col-grid,
+  .tag-grid,
   .split,
   .result-columns {
     grid-template-columns: 1fr;

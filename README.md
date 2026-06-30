@@ -57,9 +57,30 @@ The prototype proves the operating loop, not production readiness:
 
 - [Working spec](docs/agentops-core-working-spec.md): current product contract for the meta-harness direction, context packets, handoffs, gap analysis, memory, and implementation sequence.
 - [Harness UI contract](docs/harness-ui-contract.md): acceptance criteria and data-binding rules for context/control-agent surfaces.
+- [Phase 2 validation contract](docs/phase2-validation-contract.md): acceptance criteria and identity/mutation rules for the Treuhand validation kit.
+- [Phase 2 case import format](docs/phase2-case-import-format.md): versioned anonymized case format for local validation.
+- [Phase 2 demo script](docs/demo-script-phase2.md): stakeholder click path, talk track, expected questions, and next-step proposal.
+- [Phase 2 anonymized data request](docs/phase2-anonymized-data-request.md): one-page request for 3-5 friendly reviewer cases.
+- [Phase 2 internal demo review](docs/phase2-internal-demo-review.md): template for objections and go/no-go after an internal demo run.
 - [First slice](docs/first-slice.md): narrow Treuhand validation plan.
 - [Operator acquisition thesis](docs/operator-acquisition-thesis.md): strategic boundary for the future acquisition or holding-company option.
 - [Original thesis](ai_native_operating_layer_agent_spec.md): broader strategic source document.
+
+## Phase 2 Validation Loop
+
+The local app includes a `Validation` tab for bundled anonymized Treuhand sample cases.
+
+Use it to:
+
+1. load a bundled sample case;
+2. inspect the configured checklist and baseline manual time;
+3. run `A-TREU-001` from the Case tab;
+4. capture reviewer rating, failure tags, and trace annotation;
+5. read the generated before/after operating memo.
+
+The `Run all samples` action in the Validation tab replays the bundled sample cases locally and creates validation records and operating memos without external services.
+
+The bundled fixtures live in [src/phase2SampleCases.js](src/phase2SampleCases.js). The validation logic lives in [src/validation.js](src/validation.js).
 
 ## Fail-Fast Validation
 

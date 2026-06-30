@@ -9,6 +9,15 @@ import {
   runSecurityAgent
 } from "./controlAgents.js";
 import { activeCase, addAuditEvent, loadStore, resetStore, saveStore } from "./state.js";
+import {
+  FAILURE_TAGS,
+  buildOperatingMemo,
+  createValidationRecord,
+  getCaseChecklist,
+  normalizeCaseImport,
+  runValidationSample,
+  validateCaseImport
+} from "./validation.js";
 
 let store = loadStore();
 
@@ -16,6 +25,7 @@ const views = {
   workspace: document.querySelector("#workspace-view"),
   context: document.querySelector("#context-view"),
   controls: document.querySelector("#controls-view"),
+  validation: document.querySelector("#validation-view"),
   agents: document.querySelector("#agents-view"),
   review: document.querySelector("#review-view"),
   metrics: document.querySelector("#metrics-view")
@@ -42,6 +52,7 @@ function render() {
   renderWorkspace();
   renderContext();
   renderControls();
+  renderValidation();
   renderAgents();
   renderReview();
   renderMetrics();
@@ -240,6 +251,103 @@ function renderControls() {
   `;
 }
 
+function renderValidation() {
+  const caseRecord = activeCase(store);
+  const latestRun = latestRunForCase(caseRecord.id);
+  const validationRecords = store.validationRecords.filter((item) => item.caseId === caseRecord.id);
+  const latestRecord = validationRecords[0] || null;
+  const baseline = latestRecord?.baseline || caseRecord.validation?.baseline || {};
+  const checklist = getCaseChecklist(caseRecord);
+  const memo = latestRun
+    ? buildOperatingMemo({
+        caseRecord,
+        run: latestRun,
+        validationRecord:
+          latestRecord ||
+          createValidationRecord({
+            caseRecord,
+            run: latestRun,
+            reviewerRating: caseRecord.validation?.reviewerRating || {},
+            baseline,
+            traceNote: caseRecord.validation?.traceAnnotations?.[0]?.note || "No trace annotation captured yet."
+          })
+      })
+    : null;
+
+  views.validation.innerHTML = `
+    <div class="panel-header">
+      <div>
+        <p class="eyebrow">Phase 2 validation</p>
+        <h2>Treuhand operating proof kit</h2>
+      </div>
+      <div class="button-row">
+        <button class="secondary-button" id="run-all-validation-samples" title="Run all bundled anonymized samples">Run all samples</button>
+      </div>
+    </div>
+
+    <div class="summary-grid metric-grid">
+      ${metricTile("Sample imports", String(store.validationCaseImports.length))}
+      ${metricTile("Validation records", String(store.validationRecords.length))}
+      ${metricTile("Active case", caseRecord.id)}
+      ${metricTile("Latest run", latestRun ? latestRun.id : "none")}
+    </div>
+
+    <div class="split validation-split">
+      <section class="subpanel">
+        <div class="subpanel-heading">
+          <h3>Anonymized case imports</h3>
+          <span>${store.validationCaseImports.length} fixtures</span>
+        </div>
+        <div class="artifact-list compact-list">
+          ${store.validationCaseImports.map(renderSampleImport).join("")}
+        </div>
+      </section>
+
+      <section class="subpanel">
+        <div class="subpanel-heading">
+          <h3>Active validation case</h3>
+          <span>${caseRecord.validation ? "Phase 2 import" : "demo case"}</span>
+        </div>
+        <div class="summary-grid two-col-grid">
+          ${metricTile("Baseline minutes", baseline.manualPrepMinutes ?? "n/a")}
+          ${metricTile("Manual handoffs", baseline.manualHandoffCount ?? "n/a")}
+        </div>
+        <h4>Configured checklist</h4>
+        <div class="artifact-list compact-list">
+          ${checklist.map(renderChecklistConfigItem).join("")}
+        </div>
+      </section>
+    </div>
+
+    <div class="split validation-split">
+      <section class="subpanel">
+        <div class="subpanel-heading">
+          <h3>Reviewer capture</h3>
+          <span>${latestRecord ? latestRecord.validationRecordId : "not captured"}</span>
+        </div>
+        ${latestRun ? renderValidationCaptureForm(caseRecord, latestRun, latestRecord) : emptyState("Run the active case before capturing reviewer rating and trace annotation.")}
+      </section>
+
+      <section class="subpanel">
+        <div class="subpanel-heading">
+          <h3>Before/after operating memo</h3>
+          <span>${memo ? "generated locally" : "needs run"}</span>
+        </div>
+        ${memo ? `<pre class="memo-output">${escapeHtml(memo)}</pre>` : emptyState("Load a sample case and run the agent to generate the operating memo.")}
+      </section>
+    </div>
+  `;
+
+  document.querySelector("#run-all-validation-samples").addEventListener("click", handleRunAllValidationSamples);
+  document.querySelectorAll("[data-load-sample]").forEach((button) => {
+    button.addEventListener("click", () => handleLoadSample(button.dataset.sampleCaseId));
+  });
+  const validationForm = document.querySelector("#validation-form");
+  if (validationForm) {
+    validationForm.addEventListener("submit", handleValidationSubmit);
+  }
+}
+
 function renderAgents() {
   views.agents.innerHTML = `
     <div class="panel-header">
@@ -338,6 +446,8 @@ function renderMetrics() {
   const avgMinutesSaved = average(completedRuns.map((run) => run.output.metrics.estimated_minutes_saved));
   const avgEvidenceCoverage = average(allRuns.map((run) => run.output.metrics.evidence_coverage));
   const overrideRate = calculateOverrideRate(store.reviewDecisions);
+  const avgReviewerSaved = average(store.validationRecords.map((record) => record.metrics.reviewerEstimatedMinutesSaved));
+  const wouldUseAgainRate = calculateWouldUseAgainRate(store.validationRecords);
 
   views.metrics.innerHTML = `
     <div class="panel-header">
@@ -347,10 +457,16 @@ function renderMetrics() {
       </div>
     </div>
     <div class="summary-grid metric-grid">
-      ${metricTile("Reviewed cases", String(reviewedCaseIds.size))}
-      ${metricTile("Avg minutes saved", avgMinutesSaved === null ? "n/a" : String(avgMinutesSaved))}
+      ${metricTile("Validation cases", String(store.validationRecords.length))}
+      ${metricTile("Reviewer saved", avgReviewerSaved === null ? "n/a" : `${avgReviewerSaved} min`)}
       ${metricTile("Evidence coverage", avgEvidenceCoverage === null ? "n/a" : `${avgEvidenceCoverage}%`)}
+      ${metricTile("Would use again", wouldUseAgainRate === null ? "n/a" : `${wouldUseAgainRate}%`)}
+    </div>
+    <div class="summary-grid metric-grid">
+      ${metricTile("Reviewed cases", String(reviewedCaseIds.size))}
+      ${metricTile("Agent saved", avgMinutesSaved === null ? "n/a" : `${avgMinutesSaved} min`)}
       ${metricTile("Override rate", overrideRate === null ? "n/a" : `${overrideRate}%`)}
+      ${metricTile("Failure tags", String(store.validationRecords.flatMap((record) => record.failureTagIds).length))}
     </div>
     <section class="subpanel">
       <div class="subpanel-heading">
@@ -401,6 +517,54 @@ function handleEvidenceSubmit(event) {
   render();
 }
 
+function handleLoadSample(sampleCaseId) {
+  const sample = store.validationCaseImports.find((item) => item.sampleCaseId === sampleCaseId);
+  if (!sample) return;
+
+  const caseRecord = normalizeCaseImport(sample);
+  clearCaseArtifacts(caseRecord.id);
+  store.cases = [caseRecord, ...store.cases.filter((item) => item.id !== caseRecord.id)];
+  store.activeCaseId = caseRecord.id;
+  addAuditEvent(store, caseRecord.id, "phase2_case_imported", `Loaded anonymized sample case ${sampleCaseId}.`);
+  reconcileHarnessState();
+  render();
+}
+
+function handleRunAllValidationSamples() {
+  const results = store.validationCaseImports.map((sample) => runValidationSample(sample));
+
+  for (const result of results) {
+    clearCaseArtifacts(result.caseRecord.id);
+    result.caseRecord.status = "needs_review";
+    store.cases = [result.caseRecord, ...store.cases.filter((item) => item.id !== result.caseRecord.id)];
+    store.agentRuns = [result.run, ...store.agentRuns.filter((item) => item.id !== result.run.id)];
+    store.validationRecords = upsertById(store.validationRecords, [result.validationRecord]);
+
+    for (const recommendation of result.output.recommendations) {
+      store.recommendations.unshift({
+        ...recommendation,
+        caseId: result.caseRecord.id,
+        runId: result.run.id,
+        reviewStatus: "pending",
+        draft: result.output.draft_outputs.email_draft
+      });
+    }
+
+    addAuditEvent(
+      store,
+      result.caseRecord.id,
+      "phase2_validation_sample_run",
+      `${result.caseRecord.id} replayed with reviewer rating and operating memo.`
+    );
+  }
+
+  if (results.length > 0) {
+    store.activeCaseId = results[0].caseRecord.id;
+  }
+  reconcileHarnessState();
+  render();
+}
+
 function handleRunAgent() {
   const caseRecord = activeCase(store);
   const auth = runAuthorizationAgent({
@@ -417,7 +581,7 @@ function handleRunAgent() {
     return;
   }
 
-  const output = runTreuhandAgent(caseRecord);
+  const output = runTreuhandAgent(caseRecord, getCaseChecklist(caseRecord));
   const run = {
     id: `run_${Date.now()}`,
     caseId: caseRecord.id,
@@ -457,6 +621,49 @@ function handleRunAgent() {
   store.memoryCandidates = mergeById(store.memoryCandidates, gap.memoryCandidates);
   store.controlAgentOutputs = mergeById(store.controlAgentOutputs, gap.controlAgentOutputs);
 
+  render();
+}
+
+function handleValidationSubmit(event) {
+  event.preventDefault();
+  const formData = new FormData(event.currentTarget);
+  const caseRecord = activeCase(store);
+  const latestRun = latestRunForCase(caseRecord.id);
+  if (!latestRun) {
+    addAuditEvent(store, caseRecord.id, "phase2_validation_missing_run", "Reviewer capture requires an agent run.");
+    render();
+    return;
+  }
+
+  const baseline = {
+    manualPrepMinutes: Number(formData.get("manualPrepMinutes")),
+    manualHandoffCount: Number(formData.get("manualHandoffCount")),
+    humanMissingItemIds: caseRecord.validation?.baseline?.humanMissingItemIds || []
+  };
+  const reviewerRating = {
+    overallUsefulness: Number(formData.get("overallUsefulness")),
+    checklistTrust: Number(formData.get("checklistTrust")),
+    evidenceTraceability: Number(formData.get("evidenceTraceability")),
+    timeSavedMinutes: Number(formData.get("timeSavedMinutes")),
+    wouldUseAgain: formData.get("wouldUseAgain") === "on",
+    failureTagIds: formData.getAll("failureTagIds"),
+    notes: String(formData.get("reviewerNotes") || "").trim()
+  };
+
+  const validationRecord = createValidationRecord({
+    caseRecord,
+    run: latestRun,
+    reviewerRating,
+    baseline,
+    traceNote: String(formData.get("traceNote") || "").trim()
+  });
+
+  caseRecord.validation ||= {};
+  caseRecord.validation.baseline = validationRecord.baseline;
+  caseRecord.validation.reviewerRating = validationRecord.reviewerRating;
+  caseRecord.validation.traceAnnotations = validationRecord.traceAnnotations;
+  store.validationRecords = upsertById(store.validationRecords, [validationRecord]);
+  addAuditEvent(store, caseRecord.id, "phase2_reviewer_capture", `Saved ${validationRecord.validationRecordId}.`);
   render();
 }
 
@@ -571,6 +778,121 @@ function renderRecommendation(item) {
         <button class="danger-button" data-review-action="reject" data-recommendation-id="${item.id}" title="Reject recommendation">Reject</button>
       </div>
     </article>
+  `;
+}
+
+function renderSampleImport(sample) {
+  const validation = validateCaseImport(sample);
+  return `
+    <article class="artifact-item">
+      <div class="artifact-heading">
+        <strong>${escapeHtml(sample.sampleCaseId)}</strong>
+        <span class="${validation.valid ? "tag" : "tag warning-tag"}">${validation.valid ? "valid" : "invalid"}</span>
+      </div>
+      <div class="mini-meta">
+        <span>case: ${escapeHtml(sample.caseId)}</span>
+        <span>period: ${escapeHtml(sample.period)}</span>
+        <span>baseline: ${escapeHtml(sample.baseline.manualPrepMinutes)} min</span>
+      </div>
+      <p>${escapeHtml(sample.title)}</p>
+      ${
+        validation.valid
+          ? ""
+          : `<p class="warning-copy">${escapeHtml(validation.errors.join(" "))}</p>`
+      }
+      <button class="secondary-button" data-load-sample data-sample-case-id="${escapeHtml(sample.sampleCaseId)}" title="Load sample case">Load sample</button>
+    </article>
+  `;
+}
+
+function renderChecklistConfigItem(item) {
+  return `
+    <article class="artifact-item">
+      <div class="artifact-heading">
+        <strong>${escapeHtml(item.id)}</strong>
+        <span>${item.required ? "required" : "optional"}</span>
+      </div>
+      <p>${escapeHtml(item.label)}</p>
+      <div class="mini-meta">
+        <span>aliases: ${escapeHtml(item.aliases.join(", "))}</span>
+      </div>
+    </article>
+  `;
+}
+
+function renderValidationCaptureForm(caseRecord, latestRun, latestRecord) {
+  const baseline = latestRecord?.baseline || caseRecord.validation?.baseline || {};
+  const rating = latestRecord?.reviewerRating || caseRecord.validation?.reviewerRating || {};
+  const selectedTags = new Set(latestRecord?.failureTagIds || rating.failureTagIds || []);
+  const traceNote =
+    latestRecord?.traceAnnotations?.[0]?.note ||
+    caseRecord.validation?.traceAnnotations?.[0]?.note ||
+    "";
+
+  return `
+    <form id="validation-form" class="validation-form">
+      <div class="form-row">
+        <label>
+          Manual prep minutes
+          <input name="manualPrepMinutes" type="number" min="0" step="1" value="${escapeHtml(baseline.manualPrepMinutes ?? 0)}" required />
+        </label>
+        <label>
+          Manual handoffs
+          <input name="manualHandoffCount" type="number" min="0" step="1" value="${escapeHtml(baseline.manualHandoffCount ?? 0)}" required />
+        </label>
+      </div>
+      <div class="form-row">
+        <label>
+          Usefulness
+          <input name="overallUsefulness" type="number" min="0" max="5" step="1" value="${escapeHtml(rating.overallUsefulness ?? 0)}" required />
+        </label>
+        <label>
+          Checklist trust
+          <input name="checklistTrust" type="number" min="0" max="5" step="1" value="${escapeHtml(rating.checklistTrust ?? 0)}" required />
+        </label>
+        <label>
+          Evidence traceability
+          <input name="evidenceTraceability" type="number" min="0" max="5" step="1" value="${escapeHtml(rating.evidenceTraceability ?? 0)}" required />
+        </label>
+      </div>
+      <div class="form-row">
+        <label>
+          Reviewer minutes saved
+          <input name="timeSavedMinutes" type="number" min="0" step="1" value="${escapeHtml(rating.timeSavedMinutes ?? 0)}" required />
+        </label>
+        <label class="checkbox-label">
+          <input name="wouldUseAgain" type="checkbox" ${rating.wouldUseAgain ? "checked" : ""} />
+          Would use again
+        </label>
+      </div>
+      <fieldset class="tag-fieldset">
+        <legend>Failure tags</legend>
+        <div class="tag-grid">
+          ${FAILURE_TAGS.map((tag) => renderFailureTagCheckbox(tag, selectedTags)).join("")}
+        </div>
+      </fieldset>
+      <label>
+        Reviewer notes
+        <textarea name="reviewerNotes" rows="3">${escapeHtml(rating.notes || "")}</textarea>
+      </label>
+      <label>
+        Trace annotation for ${escapeHtml(latestRun.id)}
+        <textarea name="traceNote" rows="3" required>${escapeHtml(traceNote)}</textarea>
+      </label>
+      <button type="submit" class="primary-button" title="Save validation record">Save validation record</button>
+    </form>
+  `;
+}
+
+function renderFailureTagCheckbox(tag, selectedTags) {
+  return `
+    <label class="checkbox-label tag-checkbox">
+      <input name="failureTagIds" type="checkbox" value="${escapeHtml(tag.id)}" ${selectedTags.has(tag.id) ? "checked" : ""} />
+      <span>
+        <strong>${escapeHtml(tag.label)}</strong>
+        <small>${escapeHtml(tag.id)}</small>
+      </span>
+    </label>
   `;
 }
 
@@ -752,6 +1074,30 @@ function latestRunForCase(caseId) {
   return store.agentRuns.find((run) => run.caseId === caseId);
 }
 
+function clearCaseArtifacts(caseId) {
+  store.contextPackets = store.contextPackets.filter((item) => item.caseId !== caseId);
+  store.controlAgentOutputs = store.controlAgentOutputs.filter((item) => item.caseId !== caseId);
+  store.securityFindings = store.securityFindings.filter((item) => item.caseId !== caseId);
+  store.authorizationDecisions = store.authorizationDecisions.filter((item) => item.caseId !== caseId);
+  store.gapFindings = store.gapFindings.filter((item) => item.caseId !== caseId);
+  store.cadenceNudges = store.cadenceNudges.filter((item) => item.caseId !== caseId);
+  store.memoryCandidates = store.memoryCandidates.filter((item) => item.caseId !== caseId);
+  store.handoffRequests = store.handoffRequests.filter((item) => item.caseId !== caseId);
+  store.agentRuns = store.agentRuns.filter((item) => item.caseId !== caseId);
+  store.recommendations = store.recommendations.filter((item) => item.caseId !== caseId);
+  store.reviewDecisions = store.reviewDecisions.filter((item) => item.caseId !== caseId);
+  store.validationRecords = store.validationRecords.filter((item) => item.caseId !== caseId);
+  store.auditEvents = store.auditEvents.filter((item) => item.caseId !== caseId);
+}
+
+function upsertById(existing = [], incoming = []) {
+  const byId = new Map(existing.map((item) => [item.id, item]));
+  for (const item of incoming) {
+    byId.set(item.id, item);
+  }
+  return [...byId.values()];
+}
+
 function metricTile(label, value) {
   return `
     <article class="metric-tile">
@@ -775,6 +1121,12 @@ function calculateOverrideRate(decisions) {
   if (decisions.length === 0) return null;
   const overrides = decisions.filter((decision) => decision.decision === "edit" || decision.decision === "reject").length;
   return Math.round((overrides / decisions.length) * 100);
+}
+
+function calculateWouldUseAgainRate(records) {
+  if (records.length === 0) return null;
+  const positive = records.filter((record) => record.reviewerRating?.wouldUseAgain).length;
+  return Math.round((positive / records.length) * 100);
 }
 
 function formatTime(value) {
