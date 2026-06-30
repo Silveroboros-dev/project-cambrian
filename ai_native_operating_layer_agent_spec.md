@@ -3,7 +3,7 @@
 **Agent catalogue, product specification, architecture, and dev-agent build brief**  
 **Version:** 0.1  
 **Date:** 2026-06-29  
-**Owner:** Ruslan / exploratory thesis for SmartCore, FourTrade/Treuhand, MIC Invest conversations  
+**Owner:** Ruslan / exploratory thesis for SmartCore, pilot Treuhand firm/Treuhand, private-market investor conversations  
 **Working name:** `AI Operating Layer` or `Swiss SME AgentOps`
 
 ---
@@ -166,13 +166,13 @@ RICE score:
 The log is a strategic backlog. The first product should prove the shared AgentOps core with 2–3 very practical agents. Recommended build order:
 
 1. **A-TREU-001 — Client Document Intake & Closing Prep Agent**  
-   Best fit for Treuhand / FourTrade / low-volatility Swiss SME thesis.
+   Best fit for Treuhand / pilot Treuhand firm / low-volatility Swiss SME thesis.
 
 2. **A-SC-001 — Fraud Alert Triage & Explanation Agent**  
    Best fit for SmartCore, payment infrastructure, and product credibility.
 
 3. **A-WM-001 or A-TRS-001 — Portfolio Review Pack or Cash Position Agent**  
-   Best fit for conversations with asset managers, wealth managers, treasurers, and MIC Invest.
+   Best fit for conversations with asset managers, wealth managers, treasurers, and private-market investor.
 
 4. **A-PE-001 — Target Screening & Acquisition Triage Agent**  
    Best bridge from agent proof to acquisition thesis.
@@ -181,7 +181,7 @@ The log is a strategic backlog. The first product should prove the shared AgentO
 
 - Treuhand proves “boring stable SME workflow” value.
 - SmartCore proves advanced financial-infrastructure value.
-- Wealth/treasury proves relevance to Marcus / asset-management network.
+- Wealth/treasury proves relevance to private-market advisor / asset-management network.
 - PE/acquisition agent turns the operating proof into an investment vehicle story.
 
 ---
@@ -1674,7 +1674,7 @@ Deliverables:
 
 ## 20. Communication snippets
 
-### 20.1 To FourTrade founder
+### 20.1 To pilot Treuhand firm founder
 
 > I am building a practical AI workflow layer for Swiss Treuhand firms. The first agent does not replace accountants and does not make tax decisions. It prepares client document packages, checks completeness, extracts facts, drafts reminders, and gives the accountant an audit-ready review pack. The goal is to reduce repetitive admin work and make the firm more scalable while preserving the trusted client relationship.
 
@@ -1682,7 +1682,7 @@ Deliverables:
 
 > SmartCore already has the core payment-risk data: transactions, scores, alerts, merchants, gates, cascades, customer attributes, chargebacks, refunds, and graph links. I want to build an agent layer that turns this data into fraud investigation packs: why the alert fired, what pattern it resembles, what evidence supports it, and what the analyst should review next. This turns SmartCore from a scoring system into an operating cockpit for risk teams.
 
-### 20.3 To Marcus / MIC Invest
+### 20.3 To private-market advisor / investor
 
 > I am not starting with a fund. I am starting with operating proof. The thesis is that stable Swiss service SMEs have recurring cash flow but manual workflows. I am building controlled AI agents that improve specific workflows — document intake, closing preparation, portfolio review, cash forecasting, fraud investigation — and measuring the impact. If the proof is real, the acquisition thesis becomes concrete: acquire or partner with stable firms and apply a proven AI-native operating layer.
 
@@ -1696,7 +1696,7 @@ Deliverables:
 4. Build A-TREU-001 or A-SC-001 as the first working agent.
 5. Use 10–20 real or anonymized cases for evaluation.
 6. Build the first pilot proof memo.
-7. Then speak to Marcus with measured evidence, not just the thesis.
+7. Then speak to a private-market advisor with measured evidence, not just the thesis.
 
 Recommended first agent:
 

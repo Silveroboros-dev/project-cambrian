@@ -21,7 +21,7 @@ Do not lead with:
 - a blind-pool fund;
 - a holding company before there is operating proof;
 - broad claims that AI will transform margins;
-- a multi-vertical story that mixes Treuhand, cleaning, wealth, treasury, crypto, and payments as if they are one market.
+- a multi-vertical story that mixes Treuhand, payroll, insurance, property, wealth, treasury, crypto, and payments as if they are one market.
 
 ## Strategic Boundary
 
@@ -37,18 +37,24 @@ Operating alpha means:
 
 Until that evidence exists, the acquisition thesis is an option, not the product.
 
-## Vertical Focus
+## Strategic Queue Map
 
 Phase 2 remains Treuhand/accounting-first.
 
-| Vertical | Near-term role | Reason |
-|---|---|---|
-| Treuhand / accounting / fiduciary services | Primary beachhead | Recurring work, documentation overload, client trust, compliance pressure, measurable admin savings. |
-| Wealth / treasury operations | Secondary wedge | Strong fit with finance credibility, but higher compliance expectations and slower buying cycles. |
-| Cleaning and field services | Deferred | Stable cash-flow profile, but the AI edge is more scheduling/routing/HR/procurement than document-governed agent work. |
-| Crypto/payment infrastructure | Separate optionality | Potentially high upside, but does not belong inside the boring Swiss service-SME proof. |
+The stakeholder map should be organized as queues, not as an undifferentiated sector list.
+
+| Queue | Role | Contents | Pitch treatment |
+|---|---|---|---|
+| Trusted Financial Administration | Active wedge | Treuhand, accounting, tax, payroll, HR admin, corporate services | Lead with Treuhand proof; mention payroll as adjacent. |
+| Wealth / Treasury / Family Office Ops | Credibility wedge | Wealth managers, treasury boutiques, family-office admin, SPV reporting | Use where Ruslan's finance credibility matters; keep compliance boundary explicit. |
+| Insurance & Risk Intermediation | Future roll-up candidate | SME brokers, benefits brokers, claims/admin brokers | Attractive future queue; do not build before Treuhand evidence. |
+| Real Asset Administration | Second-wave queue | Property management, STWEG admin, rental admin, permit support | Attractive admin pain; likely needs a local operator partner. |
+| Regulated Financial Infrastructure | Separate optionality | Payments, crypto on/off-ramp, PSP/AML/KYC operations | Keep separate from conservative Swiss SME cash-flow pitch. |
+| Research-only queues | Watchlist | Customs/trade, healthcare admin, legal/corporate ops, construction permits | Track, but do not pitch as active scope. |
 
 Do not add a second vertical until the Treuhand workflow has produced evidence or failed clearly.
+
+The detailed queue map is [Strategic Queue Map](strategic-queue-map.md). The scoring discipline is [Queue Evaluation Rubric](queue-evaluation-rubric.md).
 
 ## Phase 2 Evidence Target
 
@@ -131,6 +137,9 @@ Verify before quoting externally:
 - FDPIC guidance on AI-supported data processing under the Federal Data Protection Act;
 - FINMA commentary on AI, outsourcing, model risk, data quality, cyber risk, third-party dependency, and reputational risk;
 - licensing boundaries for portfolio managers, trustees, collective investment structures, and acquisition vehicles.
+- Swiss payroll/HR administration burden and dissatisfaction claims;
+- insurance-broker fragmentation and roll-up-market claims;
+- property-management digital-maturity claims;
+- healthcare-admin, customs-digitization, and construction-permit friction claims.
 
 Until verified, use these only as research leads.
-

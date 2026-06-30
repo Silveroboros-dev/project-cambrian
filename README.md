@@ -51,7 +51,7 @@ The prototype proves the operating loop, not production readiness:
 - No authentication.
 - No database.
 - No LLM calls.
-- No 4Trade data ingestion until anonymized samples are available.
+- No pilot accounting firm data ingestion until anonymized samples are available.
 
 ## Project Specs
 
@@ -62,6 +62,8 @@ The prototype proves the operating loop, not production readiness:
 - [Phase 2 demo script](docs/demo-script-phase2.md): stakeholder click path, talk track, expected questions, and next-step proposal.
 - [Phase 2 anonymized data request](docs/phase2-anonymized-data-request.md): one-page request for 3-5 friendly reviewer cases.
 - [Phase 2 internal demo review](docs/phase2-internal-demo-review.md): template for objections and go/no-go after an internal demo run.
+- [Strategic queue map](docs/strategic-queue-map.md): stakeholder-facing vertical queue structure and activation boundaries.
+- [Queue evaluation rubric](docs/queue-evaluation-rubric.md): scoring tool for future queue activation.
 - [First slice](docs/first-slice.md): narrow Treuhand validation plan.
 - [Operator acquisition thesis](docs/operator-acquisition-thesis.md): strategic boundary for the future acquisition or holding-company option.
 - [Original thesis](ai_native_operating_layer_agent_spec.md): broader strategic source document.
@@ -84,7 +86,7 @@ The bundled fixtures live in [src/phase2SampleCases.js](src/phase2SampleCases.js
 
 ## Fail-Fast Validation
 
-The next useful proof requires 10-20 anonymized Treuhand cases from 4Trade or another accounting workflow owner.
+The next useful proof requires 10-20 anonymized Treuhand cases from a pilot accounting firm or another accounting workflow owner.
 
 For each case, collect:
 

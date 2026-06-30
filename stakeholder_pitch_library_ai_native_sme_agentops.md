@@ -1,6 +1,6 @@
 # Stakeholder Pitch Library
 
-**Project:** AI-native operating layer for Swiss service SMEs, financial operators, and SmartCore-adjacent payment risk infrastructure  
+**Project:** AI-native operating layer for Swiss service SMEs, trusted financial administration, and separated regulated-infrastructure optionality  
 **Working names:** AgentOps Core, Swiss SME AgentOps, AI-Native Operating Layer  
 **Version:** 0.1  
 **Date:** 2026-06-29  
@@ -10,11 +10,11 @@
 
 ## 0. How to use this document
 
-This is a reusable pitch library. It aggregates the stakeholder narratives developed across the Airwallex, SmartCore, Swiss SME holding-company, and agents-first discussions.
+This is a reusable pitch library. It aggregates the stakeholder narratives developed across the Swiss SME operating proof, Treuhand validation, SmartCore, queue-map, and agents-first discussions.
 
 Use it in four situations:
 
-1. **Validation conversations** — with FourTrade, SmartCore, Marcus / MIC Invest, wealth managers, treasury teams, or Swiss SME founders.
+1. **Validation conversations** — with pilot Treuhand firm, private-market advisor / investor, Treuhand reviewers, payroll/HR admin operators, wealth managers, treasury teams, SmartCore, or Swiss SME founders.
 2. **Pilot conversations** — when asking for access to one workflow, anonymised data, or a controlled 2–4 week agent pilot.
 3. **Investor conversations** — after a pilot demonstrates measurable operating lift.
 4. **Internal alignment** — with engineering, sales, marketing, leadership, legal, or operating partners.
@@ -41,7 +41,7 @@ Do not lead with a regulated fund or broad private-equity story. Lead with a pra
 
 > I am exploring an AI-native operating layer for Swiss service SMEs and financial operators. The starting point is not a fund, not a fintech clone, and not a generic AI consultancy. The starting point is one painful workflow where AI can produce measurable operating lift.
 >
-> The first likely areas are Treuhand/accounting, payment-risk operations, wealth-management operations, treasury workflows, and similar document-heavy, trust-heavy service businesses. These businesses often have loyal clients and recurring revenue, but they struggle with manual admin, shortage of qualified staff, fragmented systems, and succession pressure.
+> The active wedge is Treuhand/accounting. Adjacent queues include payroll/HR administration and corporate services, then wealth/treasury operations, insurance brokerage, and property administration. Payment-risk and crypto/PSP infrastructure remain separate optionality, not part of the conservative Swiss SME cash-flow story.
 >
 > My edge is not financial engineering. It is operating transformation: applying AI agents, workflow automation, data discipline, and better reporting to improve average productivity, service quality, audit readiness, and margin potential without damaging the trusted human relationship.
 >
@@ -49,17 +49,21 @@ Do not lead with a regulated fund or broad private-equity story. Lead with a pra
 
 ### 1.4 The cleanest investment thesis sentence
 
-> I am exploring an operator-led Swiss SME acquisition platform that buys stable service businesses with succession pressure and uses AI-native operations to improve margins, service quality, and scalability — starting with Treuhand/accounting, with payments infrastructure as a strategic adjacency.
+> I am exploring an operator-led Swiss SME acquisition platform that buys or partners with stable service businesses with succession pressure and uses AI-native operations to improve margins, service quality, and scalability — starting with Treuhand/accounting and adjacent payroll/corporate admin, while keeping regulated financial infrastructure separate.
 
 ### 1.5 The cleanest agents-first thesis sentence
 
 > Before creating an acquisition vehicle, I want to prove the operating edge by building practical AI agents for boring Swiss service workflows where we can measure time saved, quality improved, and margin potential.
 
-### 1.6 The SmartCore thesis sentence
+### 1.6 The queue discipline sentence
+
+> We are not chasing every AI vertical. We score queues by document density, recurrence, owner dependency, measurable admin burden, compliance need, data access, credibility, acquisition fit, regulatory drag, and demo feasibility. Treuhand is active because it can be validated locally before any acquisition story.
+
+### 1.7 The SmartCore thesis sentence
 
 > SmartCore should be positioned not as a Swiss Airwallex clone, but as a real-time payment decision intelligence layer: fraud scoring, workflow-specific risk, gateway routing, customer graph intelligence, and audit-ready explanations.
 
-### 1.7 The Airwallex lesson adapted to this project
+### 1.8 The Airwallex lesson adapted to this project
 
 > Airwallex validates the pattern, not the exact product. The lesson is wedge first, platform later: start with one painful workflow, prove value, then expand into a broader operating layer.
 
@@ -89,9 +93,32 @@ Do not lead with a regulated fund or broad private-equity story. Lead with a pra
 
 > We are deliberately keeping the first version inside a controlled operating boundary. The agent prepares and explains work; the human approves. We measure the workflow before and after. We avoid holding client funds, executing payments, submitting filings, placing trades, or making final regulated decisions.
 
+### 2.4 Queue map for stakeholder conversations
+
+Use queues to show strategic breadth without implying product sprawl.
+
+| Queue | Stakeholder framing | Status |
+|---|---|---|
+| Queue 1 — Trusted Financial Administration | Treuhand, accounting, tax, payroll, HR admin, corporate services. | Active through Treuhand validation; payroll is the strongest adjacent wedge. |
+| Queue 2 — Wealth / Treasury / Family Office Ops | Review packs, liquidity reports, IC memos, KYC/suitability completeness, cash-position packs. | Credibility wedge; higher compliance boundary. |
+| Queue 3 — Insurance & Risk Intermediation | Renewal prep, coverage gaps, claims packs, carrier comparisons, advice-process evidence. | Future roll-up candidate; not active build scope. |
+| Queue 4 — Real Asset Administration | Property management, STWEG, rental admin, lease deadlines, vendor dispatch, owner reports. | Future second-wave queue; needs local operator validation. |
+| Queue 5 — Regulated Financial Infrastructure | Payments, crypto on/off-ramp, PSP, AML/KYC, transaction monitoring. | Separate optionality; do not mix into boring-SME cash-flow pitch. |
+| Research-only queues | Customs/trade, healthcare admin, legal/corporate ops, construction permits. | Watchlist only. |
+
+Activation rule:
+
+> A queue becomes active only after the current active queue has real validation evidence or fails clearly.
+
+### 2.5 Queue scoring language
+
+Use this sentence when a stakeholder asks why these sectors:
+
+> We prioritize sectors where the bottleneck is documents, deadlines, reconciliation, compliance, client communication, and expert review. A queue is attractive only if controlled agents can plausibly reduce admin or expert time by 30-50% while preserving human approval, client trust, audit trail, and data protection.
+
 ---
 
-## 3. Stakeholder pitch: Marcus Marthaler / MIC Invest
+## 3. Stakeholder pitch: private-market advisor / investor
 
 ### 3.1 Objective
 
@@ -99,23 +126,23 @@ Validate whether the thesis could become investable after operating proof. Do no
 
 ### 3.2 One-line opener
 
-> Marcus, I am not ready to ask for acquisition capital yet. I first want to prove the operating edge: controlled AI agents that improve real Swiss service workflows and create a repeatable value-creation playbook.
+> I am not ready to ask for acquisition capital yet. I first want to prove the operating edge: controlled AI agents that improve real Swiss service workflows and create a repeatable value-creation playbook.
 
 ### 3.3 Short meeting pitch
 
-> Marcus, I am exploring a Swiss operator-led acquisition thesis, but I think the right first step is not fundraising. The right first step is to prove the operating model.
+> I am exploring a Swiss operator-led acquisition thesis, but I think the right first step is not fundraising. The right first step is to prove the operating model.
 >
-> The idea is that many stable Swiss service SMEs have loyal clients and cash flow, but they are under-automated and succession-constrained. I want to build and test practical AI agents inside one or two real workflows — Treuhand, accounting, payment operations, compliance, treasury, or wealth-management operations — and measure whether we can improve average productivity, response time, error rate, and margin.
+> The idea is that many stable Swiss service SMEs have loyal clients and cash flow, but they are under-automated and succession-constrained. I want to build and test practical AI agents inside one real workflow first — Treuhand document intake — then score adjacent queues such as payroll/HR admin, wealth/treasury operations, insurance brokerage, and property administration only after the first proof is real.
 >
 > If the results are real, then the investment thesis becomes much more concrete: acquire or partner with stable Swiss SMEs and apply a proven AI-native operating layer. I would value your view on what level of proof would make this interesting from an investor perspective.
 
 ### 3.4 Longer investor framing
 
-> Switzerland has many good small businesses with loyal customers, stable cash flow, and succession pressure. They are often not startups. They are essential service companies — Treuhand, payroll, accounting, compliance, cleaning operations, payment operations, and similar businesses.
+> Switzerland has many good small businesses with loyal customers, stable cash flow, and succession pressure. They are often not startups. They are essential service companies — Treuhand, accounting, payroll/HR admin, corporate services, insurance brokerage, property administration, and similar trusted-administration businesses.
 >
 > My thesis is that the next wave of value creation in these businesses will not come mainly from financial engineering. It will come from operating transformation: better document intake, workflow control, reporting, client communication, exception handling, and management information.
 >
-> I want to build the operating proof first. If one or two agents can measurably reduce average admin time, improve response time, reduce rework, and make the firm more scalable, then we can discuss a deal-by-deal acquisition vehicle or holding-company model. The capital story should follow the operating proof, not precede it.
+> I want to build the operating proof first. If one agent can measurably reduce average admin time, improve response time, reduce rework, and make the firm more scalable, then we can discuss the next queue or a deal-by-deal acquisition vehicle. The capital story should follow the operating proof, not precede it.
 
 ### 3.5 The ask
 
@@ -125,11 +152,11 @@ Validate whether the thesis could become investable after operating proof. Do no
 
 Subject: AI-native Swiss SME operating thesis — validation question
 
-Hi Marcus,
+Hi [Name],
 
 I have been thinking about a Swiss operator-led acquisition thesis, but I believe the correct sequence is to prove the operating edge before discussing capital.
 
-The idea is to build practical AI agents for stable, trust-heavy Swiss service businesses — starting with workflows such as Treuhand document intake, accounting close preparation, payment-risk triage, treasury reporting, or wealth-management review packs. The agents would not replace professional judgment. They would prepare work, check completeness, assemble evidence, draft follow-ups, and create audit-ready review packs for human approval.
+The idea is to build practical AI agents for stable, trust-heavy Swiss service businesses — starting with Treuhand document intake and close preparation. Adjacent queues such as payroll/HR administration, wealth/treasury operations, insurance brokerage, and property administration are interesting only after the first workflow produces evidence. Regulated payment-risk infrastructure is a separate optionality layer, not the low-volatility cash-flow core.
 
 If the pilot shows measurable improvement in average productivity, response time, rework, or margin potential, then the broader thesis becomes more concrete: acquire or partner with stable Swiss SMEs and apply a proven AI-native operating layer.
 
@@ -163,7 +190,7 @@ Position the strategy as stable Swiss SME cash flow plus measurable operating im
 
 ### 4.3 Short meeting pitch
 
-> I am exploring a strategy for investors who want stable, low-volatility Swiss cash-flow exposure but also want more than passive ownership. The target assets are boring service businesses: Treuhand, accounting, payroll, compliance services, field services, and selected payment-operations infrastructure.
+> I am exploring a strategy for investors who want stable, low-volatility Swiss cash-flow exposure but also want more than passive ownership. The target assets are trusted-administration businesses: Treuhand, accounting, payroll/HR admin, corporate services, insurance brokerage, and eventually property administration. Payment and crypto infrastructure are separate optionality, not the conservative core.
 >
 > The value creation is operational, not speculative. We would use controlled AI agents and better data discipline to improve average productivity, response time, quality control, and management reporting. The business keeps the trusted human relationship; the back office becomes more scalable.
 >
@@ -179,7 +206,7 @@ Position the strategy as stable Swiss SME cash flow plus measurable operating im
 
 ---
 
-## 5. Stakeholder pitch: FourTrade Consulting / Treuhand founder
+## 5. Stakeholder pitch: pilot Treuhand firm / Treuhand founder
 
 ### 5.1 Objective
 
@@ -193,17 +220,17 @@ Open a founder-friendly conversation about practical AI workflow automation, gro
 
 > I am thinking about a broader opportunity in Swiss Treuhand and accounting. Many good firms have loyal clients, but the operating model is under pressure: more compliance, more admin, shortage of qualified people, and clients expecting faster digital service.
 >
-> I think the next generation of Treuhand firms will not simply be “digital accounting software.” They will be trusted advisory firms with an AI-native back office: automated document intake, client reminders, payroll workflows, tax checklists, reporting, and internal quality control.
+> I think the next generation of Treuhand firms will not simply be “digital accounting software.” They will be trusted advisory firms with an AI-native back office: automated document intake, client reminders, payroll/HR admin workflows, tax checklists, corporate-service calendars, reporting, and internal quality control.
 >
-> FourTrade could be a very interesting first platform or pilot for this model — not by replacing the human relationship, but by making the firm more scalable, more valuable, and easier to transition over time.
+> A pilot Treuhand firm could be a very interesting first platform or pilot for this model — not by replacing the human relationship, but by making the firm more scalable, more valuable, and easier to transition over time.
 
 ### 5.4 Agents-first version
 
-> I am not proposing a big transformation project. I would like to test one painful recurring workflow — for example client document intake, monthly closing preparation, payroll changes, or VAT filing preparation.
+> I am not proposing a big transformation project. I would like to test one painful recurring workflow first — client document intake or monthly closing preparation. If that works, payroll changes, VAT filing preparation, and corporate-service deadlines are natural adjacent workflows.
 >
 > The agent would prepare the work, check completeness, extract key fields, draft client follow-ups, and leave final review to the human expert. We would measure average time saved per client package, response time, rework, and staff acceptance.
 >
-> If it works, this becomes a growth and succession advantage for a firm like FourTrade.
+> If it works, this becomes a growth and succession advantage for a firm like a pilot Treuhand firm.
 
 ### 5.5 Founder-friendly succession version
 
@@ -221,11 +248,11 @@ Subject: Practical AI workflow pilot for Treuhand operations
 
 Hi [Name],
 
-I would like to explore a practical AI-native operating model for Treuhand firms. My interest is not a generic chatbot and not replacing advisors. The idea is to take one recurring workflow — for example client document intake, monthly close preparation, payroll changes, or VAT filing preparation — and build a controlled agent that prepares the work for human review.
+I would like to explore a practical AI-native operating model for Treuhand firms. My interest is not a generic chatbot and not replacing advisors. The idea is to take one recurring workflow first — client document intake or monthly close preparation — and build a controlled agent that prepares the work for human review. If the proof is useful, payroll changes, VAT filing preparation, and corporate-service deadlines are natural adjacent workflows.
 
 The agent would check completeness, extract key information, organise documents, draft client reminders, and create a review pack. The human expert remains responsible for the final judgment.
 
-The goal would be to measure simple operational metrics: average time saved per client package, response time, rework, and staff acceptance. If the result is useful, it could become a scalability and succession advantage for firms like FourTrade.
+The goal would be to measure simple operational metrics: average time saved per client package, response time, rework, and staff acceptance. If the result is useful, it could become a scalability and succession advantage for firms like a pilot Treuhand firm.
 
 Best,  
 Ruslan
@@ -294,7 +321,7 @@ Position SmartCore as a strategic payment decision intelligence asset and propos
 
 ### 7.3 Short meeting pitch
 
-> SmartCore is different from a boring Treuhand or cleaning business. It is not the low-volatility core of a Swiss SME cash-flow strategy. It is a strategic technology asset.
+> SmartCore is different from the trusted-administration queues such as Treuhand, payroll, insurance, or property admin. It is not the low-volatility core of a Swiss SME cash-flow strategy. It is a strategic regulated-infrastructure optionality asset.
 >
 > I think SmartCore should be positioned as a payment decision intelligence layer: fraud scoring, workflow-specific risk, gateway routing, customer graph intelligence, and audit-ready explanations.
 >
@@ -551,27 +578,27 @@ Use Ruslan’s treasury/corporate-finance background to open a practical workflo
 
 ---
 
-## 15. Stakeholder pitch: cleaning / field-service SME founder
+## 15. Stakeholder pitch: property management / real-asset administration founder
 
 ### 15.1 Objective
 
-Keep the pitch practical for a boring service business where the AI edge is operations, scheduling, staffing, and quality.
+Position property management as a future queue where the AI edge is document, inbox, vendor, deadline, tenant, and owner-reporting control. Do not make it the active wedge before Treuhand evidence.
 
 ### 15.2 One-line pitch
 
-> I am exploring practical AI operations support for field-service companies: scheduling, staff coordination, quality checks, client communication, and margin visibility.
+> I am exploring controlled AI operations support for property administration: tenant inbox triage, repair coordination, lease deadlines, owner reporting, and STWEG meeting workflows.
 
 ### 15.3 Short pitch
 
-> In field-service businesses, the margin is often lost in small operational frictions: missed shifts, unclear instructions, travel inefficiency, rework, late client communication, poor issue tracking, and weak job-level profitability.
+> Property administration has the same pattern as many trusted Swiss admin businesses: recurring work, local trust, fragmented email, documents, deadlines, vendors, owners, tenants, and exceptions.
 >
-> The agent layer would not replace supervisors. It would prepare daily schedules, flag staffing gaps, draft client updates, summarise job issues, track recurring complaints, and give management a clearer view of margin by client or site.
+> The agent layer would not replace the property manager. It would classify tenant requests, draft vendor work orders, track repair status, extract lease deadlines, prepare owner updates, assemble evidence for insurance or warranty cases, and prepare STWEG agendas and minutes for human review.
 >
-> The first pilot metric could be average supervisor admin time, missed-shift rate, rework rate, response time to client issues, or gross margin by job.
+> The first pilot metric could be average inbox triage time, repair-response time, unresolved-ticket age, owner-reporting preparation time, or meeting-minutes preparation time.
 
 ### 15.4 The ask
 
-> Could we map one recurring operational bottleneck and test whether a lightweight agent can reduce supervisor admin time or improve client response time?
+> Could we map one recurring property-admin bottleneck and test whether a controlled agent can reduce inbox triage or owner-reporting preparation time without bypassing human approval?
 
 ---
 
@@ -655,7 +682,7 @@ Keep the build focused and measurable.
 
 > Build AgentOps Core as a controlled workflow-agent platform. The first goal is not a beautiful generic agent marketplace. The first goal is one reliable, auditable workflow run: ingest documents or records, classify them, extract facts, check completeness, produce a review pack, log the run, and collect human feedback.
 >
-> Seed the full agent backlog, but implement only the first P0 workflow. Recommended first P0: Treuhand Client Document Intake & Closing Prep Agent. Strong second P0: SmartCore Fraud Alert Triage & Explanation Agent.
+> Seed the full agent backlog, but implement only the first P0 workflow. Recommended first P0: Treuhand Client Document Intake & Closing Prep Agent. Strong adjacent P0 after Treuhand evidence: Payroll / HR Admin Checklist Agent. SmartCore Fraud Alert Triage remains a separate regulated-infrastructure optionality track, not the default second product build.
 
 ### 19.3 Acceptance narrative
 
@@ -677,11 +704,71 @@ Keep the build focused and measurable.
 
 **Best stakeholder**
 
-> FourTrade, Treuhand founders, accounting firms, future acquisition targets.
+> Pilot Treuhand firms, Treuhand founders, accounting firms, future acquisition targets.
 
 **Pilot ask**
 
 > Give us a small sample of anonymised document packages and the current checklist. We will compare manual intake time against agent-assisted intake.
+
+---
+
+### 20.1A A-PAY-001 — Payroll / HR Admin Checklist Agent
+
+**Plain-English pitch**
+
+> This agent prepares payroll and HR administration checklists for human review. It tracks onboarding, offboarding, payroll changes, AHV/BVG/source-tax tasks, missing employee documents, and deadline-sensitive follow-ups.
+
+**Business value**
+
+> Reduce recurring payroll-admin preparation time, missed-field risk, handoff friction, and backup-person dependency.
+
+**Best stakeholder**
+
+> Treuhand firms, payroll outsourcing providers, HR admin teams, SME operators.
+
+**Pilot ask**
+
+> Provide an anonymised payroll-change or onboarding/offboarding case, the current checklist, and manual prep time. We will compare manual checklist preparation against agent-assisted preparation.
+
+---
+
+### 20.1B A-INS-001 — Insurance Renewal & Coverage Gap Agent
+
+**Plain-English pitch**
+
+> This agent prepares insurance renewal and coverage-gap review packs. It summarizes expiring policies, client changes, missing information, carrier offers, exclusions, premiums, deductibles, and advice-process evidence for broker review.
+
+**Business value**
+
+> Reduce renewal preparation time, improve documentation of advice, and make coverage gaps easier for a broker to review with the client.
+
+**Best stakeholder**
+
+> SME insurance brokers, benefits brokers, claims/admin brokers, future roll-up candidates.
+
+**Pilot ask**
+
+> Provide an anonymised renewal case with current policy summaries, client changes, and manual broker notes. We will generate a review pack and compare preparation time and evidence quality.
+
+---
+
+### 20.1C A-PROP-001 — Property Admin Inbox & Owner Reporting Agent
+
+**Plain-English pitch**
+
+> This agent triages property-admin inbox items, repair requests, lease deadlines, vendor follow-ups, and owner-reporting inputs. It prepares work orders, status summaries, and meeting or owner-report drafts for human approval.
+
+**Business value**
+
+> Reduce inbox triage time, repair coordination drag, owner-report preparation time, and unresolved-task aging.
+
+**Best stakeholder**
+
+> Property managers, STWEG administrators, rental-administration firms, real-asset operating partners.
+
+**Pilot ask**
+
+> Provide anonymised tenant/vendor/owner email threads and the current reporting cadence. We will produce a triage log and owner-report draft with source traceability.
 
 ---
 
@@ -717,7 +804,7 @@ Keep the build focused and measurable.
 
 **Best stakeholder**
 
-> Wealth managers, asset managers, family offices, MIC Invest-style firms.
+> Wealth managers, asset managers, family offices, private-market firms.
 
 **Pilot ask**
 
@@ -757,7 +844,7 @@ Keep the build focused and measurable.
 
 **Best stakeholder**
 
-> Marcus / MIC Invest, family offices, deal sponsors, internal thesis validation.
+> private-market advisor / investor, family offices, deal sponsors, internal thesis validation.
 
 **Pilot ask**
 
@@ -765,38 +852,18 @@ Keep the build focused and measurable.
 
 ---
 
-### 20.6 A-CLEAN-001 — Field-Service Operations Agent
-
-**Plain-English pitch**
-
-> This agent helps field-service managers coordinate schedules, staffing, quality issues, client updates, and job-level margin visibility. It supports supervisors rather than replacing them.
-
-**Business value**
-
-> Reduce supervisor admin time, missed shifts, rework, and client-response delays.
-
-**Best stakeholder**
-
-> Cleaning companies, facility services, maintenance SMEs.
-
-**Pilot ask**
-
-> Select one recurring operational process — weekly schedule, incident handling, or client update workflow — and measure admin time before and after.
-
----
-
 ## 21. Meeting agendas
 
-### 21.1 Marcus / asset manager agenda
+### 21.1 private-market advisor / asset manager agenda
 
 1. Context: why agents-first, not fund-first.
-2. Target verticals: Treuhand, treasury, wealth, payment-risk operations.
+2. Queue map: active Treuhand proof, adjacent payroll/corporate admin, future insurance/property queues, separate regulated-infrastructure optionality.
 3. Operating proof: what a 2–4 week pilot would measure.
 4. Capital proof threshold: what would make it investable.
 5. Structures to explore later: deal-by-deal SPV, holding company, pledge fund, regulated fund only after legal review.
 6. Next step: agree on proof criteria and one possible warm introduction.
 
-### 21.2 FourTrade / Treuhand agenda
+### 21.2 pilot Treuhand firm / Treuhand agenda
 
 1. Current workflow pain: document intake, close, payroll, VAT, client reminders.
 2. Choose one workflow with measurable baseline.
@@ -853,7 +920,7 @@ Keep the build focused and measurable.
 
 ### 22.7 “Why include SmartCore if the thesis is boring cash flow?”
 
-> SmartCore is not the low-risk cash-flow core. It is a strategic technology/upside asset. The clean split is: Treuhand/accounting/field services form the cash-flow base; SmartCore-style payment infrastructure is a strategic adjacency.
+> SmartCore is not the low-risk cash-flow core. It is a strategic technology/upside asset. The clean split is: Treuhand/accounting/payroll/corporate admin are the first cash-flow base; insurance and property administration are future queues; SmartCore-style payment infrastructure is a separate regulated-infrastructure optionality layer.
 
 ### 22.8 “What if staff resist?”
 
@@ -914,13 +981,13 @@ Avoid total-only claims such as “we will save millions.” Use averages.
 
 ## 24. Email subject lines
 
-### Marcus / MIC Invest
+### private-market advisor / investor
 
 - AI-native Swiss SME operating thesis — validation question
 - Operating proof before acquisition capital
 - Swiss cash-flow SME strategy: proof threshold question
 
-### FourTrade / Treuhand
+### pilot Treuhand firm / Treuhand
 
 - Practical AI workflow pilot for Treuhand operations
 - Reducing document-intake friction in Treuhand work
@@ -1019,7 +1086,7 @@ Run the same workflow in a second firm or adjacent workflow; then evaluate first
 
 ### 27.3 After first proof
 
-> Take the result to Marcus / MIC Invest and ask whether this proof is enough to explore a deal-by-deal acquisition structure.
+> Take the result to private-market advisor / investor and ask whether this proof is enough to explore a deal-by-deal acquisition structure.
 
 ### 27.4 After second proof
 
@@ -1040,16 +1107,17 @@ Use these as evidence anchors when turning the pitches into investor or stakehol
 3. **SEON payments fraud evidence:** real-time monitoring, fraud/AML convergence, explainable AI, instant-payment risk, chargeback pressure.
 4. **SmartCore internal evidence:** anti-fraud system with score, alerts, gates, cascades, merchants, customers, chargebacks, fraud/refund flags, configurable score-generators, detailed transaction inputs, customer clustering, and routing context.
 5. **Regulatory boundary:** verify FINMA / Swiss legal structure before using words such as fund, asset manager, trustee, payment institution, or investment advice.
+6. **Queue-map evidence leads:** verify public claims about Swiss payroll/HR admin burden, insurance-broker fragmentation, property-management digital maturity, healthcare admin burden, customs digitization, and construction-permit process friction before quoting them externally.
 
 ---
 
 ## 29. Best first conversation scripts
 
-### 29.1 Best first sentence to Marcus
+### 29.1 Best first sentence to private-market advisor
 
 > I am not asking for capital yet. I want to pressure-test whether an AI-native operating proof in Swiss service SMEs could become investable after one or two measurable pilots.
 
-### 29.2 Best first sentence to FourTrade
+### 29.2 Best first sentence to pilot Treuhand firm
 
 > I am not proposing a big AI transformation project. I want to test whether one repetitive Treuhand workflow can be made faster and cleaner while keeping the human advisor fully in control.
 
@@ -1069,19 +1137,23 @@ Use these as evidence anchors when turning the pitches into investor or stakehol
 
 ## 30. Recommended immediate outbound set
 
-### 30.1 FourTrade / Treuhand
+### 30.1 pilot Treuhand firm / Treuhand
 
 Send a short message asking for one workflow conversation. Target: document intake or monthly close preparation.
 
-### 30.2 SmartCore
+### 30.2 Payroll / HR admin adjacent reviewer
 
-Ask for a controlled demo around fraud alert triage or chargeback evidence preparation.
+Ask whether payroll changes, onboarding/offboarding, AHV/BVG/source-tax workflows, or HR admin checklists create recurring preparation burden adjacent to Treuhand.
 
-### 30.3 Marcus / MIC Invest
+### 30.3 private-market advisor / investor
 
-Do not ask for capital. Ask what proof threshold would make the thesis investable.
+Do not ask for capital. Ask what proof threshold would make the Queue 1 Treuhand/payroll/corporate-admin thesis investable, and whether insurance/property belong as future queues.
 
-### 30.4 Wealth / treasury contact
+### 30.4 SmartCore
+
+Keep separate from the conservative SME pitch. Ask only for a controlled demo around fraud alert triage or chargeback evidence preparation if the SmartCore conversation is already warm.
+
+### 30.5 Wealth / treasury contact
 
 Ask which recurring review workflow consumes the most senior time but could be prepared by an agent under human approval.
 
@@ -1089,5 +1161,4 @@ Ask which recurring review workflow consumes the most senior time but could be p
 
 ## 31. Compact master pitch to keep memorised
 
-> I am building an AI-native operating layer for trusted Swiss service and financial workflows. The first step is not a fund or a broad platform; it is one useful agent that improves a real workflow with measurable before/after results. In Treuhand, that could be document intake and closing prep. In SmartCore, fraud alert triage and chargeback evidence. In wealth management, portfolio review packs. In treasury, cash-position and approval packs. If these agents improve average productivity, response time, quality, and control, then the broader thesis becomes investable: acquire or partner with stable Swiss service businesses and apply a proven operating layer.
-
+> I am building an AI-native operating layer for trusted Swiss service workflows. The first step is not a fund or a broad platform; it is one useful agent that improves a real Treuhand workflow with measurable before/after results. The active queue is trusted financial administration: Treuhand, accounting, payroll/HR admin, and corporate services. Wealth/treasury is a credibility-adjacent queue; insurance and property administration are future options; SmartCore-style payment infrastructure is separate regulated optionality. If the first queue shows real productivity, response-time, quality, and control gains, then the broader thesis becomes investable: acquire or partner with stable Swiss service businesses and apply a proven operating layer.

@@ -72,7 +72,7 @@ Show:
 
 Say:
 
-> These are synthetic/anonymized fixtures that show the shape of real 4Trade or Treuhand cases. They are demo data, not market proof.
+> These are synthetic/anonymized fixtures that show the shape of real pilot accounting or Treuhand cases. They are demo data, not market proof.
 
 ### 3. Run All Samples
 
@@ -204,7 +204,7 @@ Next work should be:
 1. commit the Phase 2 validation kit;
 2. create a fresh zip snapshot;
 3. run this demo once internally and record rough objections using [Phase 2 Internal Demo Review](phase2-internal-demo-review.md);
-4. prepare a one-page anonymized-data request for 4Trade or a friendly Treuhand reviewer using [Phase 2 Anonymized Data Request](phase2-anonymized-data-request.md);
+4. prepare a one-page anonymized-data request for a pilot accounting firm or a friendly Treuhand reviewer using [Phase 2 Anonymized Data Request](phase2-anonymized-data-request.md);
 5. collect 3-5 real anonymized cases first, not 20;
 6. use those first cases to decide whether the checklist/import format needs changes;
 7. only then run the fuller 10-20 case validation.

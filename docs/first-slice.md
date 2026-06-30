@@ -24,7 +24,7 @@ It intentionally excludes databases, OCR, production auth, cloud storage, LLM ca
 
 ## Fastest Real-World Test
 
-Ask 4Trade for 10 anonymized monthly or quarterly document-intake cases.
+Ask a pilot accounting firm for 10 anonymized monthly or quarterly document-intake cases.
 
 Use the versioned [Phase 2 case import format](phase2-case-import-format.md) for each anonymized packet.
 

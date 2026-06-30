@@ -2,7 +2,7 @@
 
 Version: 0.1  
 Date: 2026-06-30  
-Audience: friendly Treuhand/accounting reviewer or 4Trade contact  
+Audience: friendly Treuhand/accounting reviewer or pilot accounting firm contact  
 
 ## Short Ask
 

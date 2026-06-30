@@ -698,7 +698,7 @@ This phase should not add a database or real connectors yet.
 
 ### Phase 2: Real Treuhand Validation
 
-Use anonymized 4Trade or accounting cases.
+Use anonymized cases from a pilot accounting firm or accounting workflow owner.
 
 Add:
 
@@ -819,7 +819,7 @@ If an agent cannot resume from these files, the run state is too complicated.
 ## 11. Open Questions
 
 1. Should the first durable storage layer be local JSON files, SQLite, or Postgres?
-2. What exact anonymized data format can 4Trade share fastest?
+2. What exact anonymized data format can a pilot accounting firm share fastest?
 3. What is the acceptable latency target for first useful output in the stakeholder demo?
 4. What is the acceptable review-noise rate for gap/security/cadence warnings?
 5. Should the next UI pass prioritize visual direction or harness vocabulary?

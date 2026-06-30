@@ -57,10 +57,17 @@ Keep Phase 2 local-only unless explicitly told otherwise.
 
 - No real customer data in the repo.
 - No secrets, credentials, private tokens, or personal data.
+- No named private contacts, private companies, friendly reviewers, investor contacts, or confidential counterparties in public docs, code, fixtures, commit messages, issues, or demos. Use role-based placeholders such as `friendly Treuhand reviewer`, `private-market advisor`, `accounting workflow owner`, or `pilot firm`.
 - No external side effects from the prototype.
 - No client emails, tax filings, investment advice, or regulated conclusions.
 - No durable memory approval by agents.
 - No acquisition/fund-formation work until operating proof exists.
+
+## Public Documentation Privacy
+
+Treat public repo text as externally visible. Do not mention names of private individuals or specific friendly firms unless the user explicitly confirms that the name is public-safe for that exact artifact.
+
+Before committing or pushing public-facing docs, run a targeted search for private names and firm names that appeared in conversation, notes, attachments, or local drafts. If any appear, replace them with generic roles.
 
 ## Validation Bar
 
@@ -74,4 +81,3 @@ A change is useful only if it improves one of:
 - stakeholder-demo reliability.
 
 Run `npm test` and `npm run smoke` after code or UI changes. For documentation-only changes, inspect relevant docs and state that tests were not necessary unless contract tests read the changed file.
-
