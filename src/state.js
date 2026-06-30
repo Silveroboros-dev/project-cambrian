@@ -1,6 +1,7 @@
 import { agentBacklog } from "./agent.js";
 import { createInitialStore } from "./demoData.js";
 import { sampleCaseImports } from "./phase2SampleCases.js";
+import { normalizeCaseSource } from "./validation.js";
 
 const STORAGE_KEY = "agentops-core-store-v1";
 const FIXTURE_SAMPLE_CASE_IDS = new Set(sampleCaseImports.map((item) => item.sampleCaseId));
@@ -63,24 +64,46 @@ export function ensureStoreShape(store) {
   shaped.reviewDecisions ||= [];
   shaped.auditEvents ||= [];
   shaped.cases ||= [];
+  shaped.cases = shaped.cases.map(normalizeCaseRecordShape);
   shaped.agents = agentBacklog;
   return shaped;
 }
 
 function normalizeValidationRecordShape(record) {
-  if (!record?.reviewerRating || record.reviewerRating.ratingSource) {
-    return record;
-  }
-
   const fixtureLike =
     FIXTURE_SAMPLE_CASE_IDS.has(record.sampleCaseId) ||
     String(record.runId || "").endsWith("_phase2_fixture");
 
   return {
     ...record,
+    caseSource: normalizeCaseSource(record.caseSource || (fixtureLike ? "phase2_fixture" : "manual_anonymized_packet")),
+    baseline: record.baseline
+      ? {
+          ...record.baseline,
+          humanMissingItemIdsCaptured: record.baseline.humanMissingItemIdsCaptured === true
+        }
+      : record.baseline,
     reviewerRating: {
-      ...record.reviewerRating,
-      ratingSource: fixtureLike ? "fixture_seed" : "human_capture"
+      ...(record.reviewerRating || {}),
+      ratingSource: record.reviewerRating?.ratingSource || (fixtureLike ? "fixture_seed" : "human_capture")
+    }
+  };
+}
+
+function normalizeCaseRecordShape(caseRecord) {
+  if (!caseRecord?.validation) return caseRecord;
+  const fixtureLike = FIXTURE_SAMPLE_CASE_IDS.has(caseRecord.validation.sampleCaseId);
+  return {
+    ...caseRecord,
+    validation: {
+      ...caseRecord.validation,
+      caseSource: normalizeCaseSource(caseRecord.validation.caseSource || (fixtureLike ? "phase2_fixture" : caseRecord.sourceSystem)),
+      baseline: caseRecord.validation.baseline
+        ? {
+            ...caseRecord.validation.baseline,
+            humanMissingItemIdsCaptured: caseRecord.validation.baseline.humanMissingItemIdsCaptured === true
+          }
+        : caseRecord.validation.baseline
     }
   };
 }

@@ -9,11 +9,13 @@ export const sampleCaseImports = [
     clientName: "Sample Client A",
     period: "2026-03",
     owner: "Client manager",
+    caseSource: "phase2_fixture",
     sourceSystem: "phase2_fixture",
     baseline: {
       manualPrepMinutes: 52,
       manualHandoffCount: 3,
-      humanMissingItemIds: ["vat_report"]
+      humanMissingItemIds: ["vat_report"],
+      humanMissingItemIdsCaptured: true
     },
     checklist: [
       {
@@ -111,11 +113,13 @@ export const sampleCaseImports = [
     clientName: "Sample Client B",
     period: "Q1 2026",
     owner: "Senior accountant",
+    caseSource: "phase2_fixture",
     sourceSystem: "phase2_fixture",
     baseline: {
       manualPrepMinutes: 74,
       manualHandoffCount: 5,
-      humanMissingItemIds: ["sales_invoice", "management_accounts_export"]
+      humanMissingItemIds: ["sales_invoice", "management_accounts_export"],
+      humanMissingItemIdsCaptured: true
     },
     checklist: [
       {

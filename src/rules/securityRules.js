@@ -51,6 +51,22 @@ export function validatePrivacyForExport(value, privatePartyTerms = DEFAULT_PRIV
     issues.push({ id: "swiss_uid_identifier", message: "Swiss UID-shaped identifier detected." });
   }
 
+  if (/(?:\+41|0041|0)\s?(?:\(0\)\s?)?(?:\d[\s.-]?){8,12}\b/i.test(text)) {
+    issues.push({ id: "swiss_phone_number", message: "Swiss phone-number-like pattern detected." });
+  }
+
+  if (/\b756[-. ]?\d{4}[-. ]?\d{4}[-. ]?\d{2}\b/i.test(text)) {
+    issues.push({ id: "swiss_ahv_identifier", message: "Swiss AHV-like identifier detected." });
+  }
+
+  if (
+    /\b[A-ZÄÖÜ][A-Za-zÄÖÜäöüéèàÉÈÀß.-]*(?:strasse|straße|gasse|weg|platz|allee|ring|quai)\s+\d+[A-Za-z]?\s*,?\s*[1-9]\d{3}\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüéèàÉÈÀß.-]+\b/i.test(
+      text
+    )
+  ) {
+    issues.push({ id: "swiss_address_like_text", message: "Swiss address-like pattern detected." });
+  }
+
   const lowerText = text.toLowerCase();
   for (const term of privatePartyTerms) {
     if (term && lowerText.includes(String(term).toLowerCase())) {

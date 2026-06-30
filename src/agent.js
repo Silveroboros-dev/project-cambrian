@@ -233,6 +233,32 @@ const documentRules = [
   }
 ];
 
+export const EVIDENCE_POLARITIES = {
+  positivePresent: "positive_present",
+  negativeAbsence: "negative_absence",
+  ambiguousReference: "ambiguous_reference",
+  taintedInstruction: "tainted_instruction"
+};
+
+const negativeAbsencePatterns = [
+  { id: "missing", pattern: /\bmissing\b/g },
+  { id: "not_attached", pattern: /\bnot attached\b/g },
+  { id: "not_included", pattern: /\bnot included\b/g },
+  { id: "still_open", pattern: /\bstill open\b/g },
+  { id: "will_follow", pattern: /\bwill follow\b/g },
+  { id: "please_send", pattern: /\bplease send\b/g },
+  { id: "not_received", pattern: /\bnot received\b/g },
+  { id: "fehlt", pattern: /\bfehlt\b/g },
+  { id: "nicht_beigelegt", pattern: /\bnicht beigelegt\b/g },
+  { id: "nicht_angehaengt", pattern: /\bnicht angehangt\b/g },
+  { id: "wird_nachgereicht", pattern: /\bwird nachgereicht\b/g },
+  { id: "folgt_spaeter", pattern: /\bfolgt spater\b/g },
+  { id: "noch_offen", pattern: /\bnoch offen\b/g },
+  { id: "noch_nicht_erhalten", pattern: /\bnoch nicht erhalten\b/g },
+  { id: "ausstehend", pattern: /\bausstehend\b/g },
+  { id: "bitte_senden", pattern: /\bbitte senden\b/g }
+];
+
 export function classifyEvidence(evidence) {
   const haystack = `${evidence.title || ""} ${evidence.content || ""}`.toLowerCase();
   let best = { type: "unknown", label: "Unknown document", score: 0, matches: [] };
@@ -251,7 +277,8 @@ export function classifyEvidence(evidence) {
 
   return {
     ...best,
-    confidence: best.score === 0 ? 0.24 : Math.min(0.95, 0.55 + best.score * 0.13)
+    confidence: best.score === 0 ? 0.24 : Math.min(0.95, 0.55 + best.score * 0.13),
+    evidence_polarity: detectEvidencePolarity(evidence, best)
   };
 }
 
@@ -264,7 +291,11 @@ export function extractFacts(evidence, classification) {
   const facts = [
     {
       fact_type: "document_classification",
-      value: { document_type: classification.type, label: classification.label },
+      value: {
+        document_type: classification.type,
+        label: classification.label,
+        evidence_polarity: classification.evidence_polarity
+      },
       confidence: classification.confidence,
       evidence_ids: [evidence.id]
     }
@@ -332,6 +363,14 @@ export function detectEvidenceWarnings(evidence, classification, caseRecord) {
     });
   }
 
+  if (classification.evidence_polarity === EVIDENCE_POLARITIES.negativeAbsence) {
+    warnings.push({
+      severity: "medium",
+      message: `${evidence.title} appears to mention a missing or outstanding document, not a present document.`,
+      evidence_ids: [evidence.id]
+    });
+  }
+
   return warnings;
 }
 
@@ -354,19 +393,39 @@ export function runTreuhandAgent(caseRecord, checklist = defaultChecklist) {
     source_type: evidence.type,
     document_type: classification.type,
     document_label: classification.label,
+    evidence_polarity: classification.evidence_polarity,
     confidence: classification.confidence,
     matched_keywords: classification.matches
   }));
 
-  const presentTypes = new Set(inventory.map((item) => item.document_type));
   const checkedEvidenceIds = inventory.map((item) => item.evidence_id);
   const checklistOutput = checklist.map((item) => {
     const required = item.required !== false;
-    const classifiedEvidenceIds = inventory.filter((doc) => item.aliases.includes(doc.document_type)).map((doc) => doc.evidence_id);
-    const textEvidenceIds = findChecklistTextMatches(evidenceItems, item);
-    const evidenceIds = unique([...classifiedEvidenceIds, ...textEvidenceIds]);
-    const present = item.aliases.some((alias) => presentTypes.has(alias)) || textEvidenceIds.length > 0;
+    const support = findChecklistEvidenceSupport(classifications, item);
+    const positiveEvidenceIds = support
+      .filter((match) => match.evidencePolarity === EVIDENCE_POLARITIES.positivePresent)
+      .map((match) => match.evidenceId);
+    const negativeEvidenceIds = support
+      .filter((match) => match.evidencePolarity === EVIDENCE_POLARITIES.negativeAbsence)
+      .map((match) => match.evidenceId);
+    const taintedEvidenceIds = support
+      .filter((match) => match.evidencePolarity === EVIDENCE_POLARITIES.taintedInstruction)
+      .map((match) => match.evidenceId);
+    const ambiguousEvidenceIds = support
+      .filter((match) => match.evidencePolarity === EVIDENCE_POLARITIES.ambiguousReference)
+      .map((match) => match.evidenceId);
+    const supportingEvidenceIds = unique([...positiveEvidenceIds]);
+    const blockedEvidenceIds = unique([...negativeEvidenceIds, ...taintedEvidenceIds, ...ambiguousEvidenceIds]);
+    const evidenceIds = supportingEvidenceIds.length > 0 ? supportingEvidenceIds : blockedEvidenceIds;
+    const present = supportingEvidenceIds.length > 0;
     const status = present ? "complete" : required ? "open" : "optional_absent";
+    const supportType = determineChecklistSupportType({
+      present,
+      required,
+      negativeEvidenceIds,
+      taintedEvidenceIds,
+      ambiguousEvidenceIds
+    });
     return {
       checklistItemId: item.id,
       item: item.label,
@@ -377,9 +436,19 @@ export function runTreuhandAgent(caseRecord, checklist = defaultChecklist) {
       claimSupport: {
         claimType: present ? "checklist_item_present" : required ? "missing_checklist_item" : "optional_checklist_item_absent",
         checklistItemId: item.id,
-        supportType: present ? "matched_evidence" : required ? "absence_from_checked_inventory" : "optional_absence",
+        supportType,
         checkedEvidenceIds,
-        matchedEvidenceIds: evidenceIds
+        matchedEvidenceIds: evidenceIds,
+        positiveEvidenceIds: supportingEvidenceIds,
+        negativeEvidenceIds,
+        taintedEvidenceIds,
+        ambiguousEvidenceIds,
+        evidencePolarities: support.map((match) => ({
+          evidenceId: match.evidenceId,
+          evidencePolarity: match.evidencePolarity,
+          supportType: match.supportType,
+          matchedTerms: match.matchedTerms
+        }))
       }
     };
   });
@@ -481,7 +550,10 @@ function buildReminderEmail(caseRecord, missingItems) {
 
 function buildReviewPack(caseRecord, inventory, missingItems, warnings, completenessScore) {
   const inventoryLines = inventory
-    .map((item) => `- ${item.title}: ${item.document_label} (${Math.round(item.confidence * 100)}%, ${item.evidence_id})`)
+    .map(
+      (item) =>
+        `- ${item.title}: ${item.document_label} (${Math.round(item.confidence * 100)}%, ${item.evidence_polarity}, ${item.evidence_id})`
+    )
     .join("\n");
   const missingLines = missingItems.length === 0 ? "- None detected" : missingItems.map((item) => `- ${item.item}`).join("\n");
   const warningLines = warnings.length === 0 ? "- None" : warnings.map((item) => `- [${item.severity}] ${item.message}`).join("\n");
@@ -505,17 +577,135 @@ function calculateEvidenceCoverage(facts, recommendations) {
   return Math.round(((factCoverage + recommendationCoverage) / 2) * 100);
 }
 
-function findChecklistTextMatches(evidenceItems, checklistItem) {
-  const terms = unique([checklistItem.id, checklistItem.label, ...(checklistItem.aliases || [])])
-    .map(normalizeChecklistTerm)
-    .filter((term) => term.length >= 4);
+export function detectEvidencePolarity(evidence, classification) {
+  const text = `${evidence?.title || ""} ${evidence?.content || ""}`;
+  if (findPromptInjection(text)) return EVIDENCE_POLARITIES.taintedInstruction;
+  if (findNegativeAbsencePattern(text) && Number(classification?.score || 0) > 0) {
+    return EVIDENCE_POLARITIES.negativeAbsence;
+  }
+  return Number(classification?.score || 0) > 0
+    ? EVIDENCE_POLARITIES.positivePresent
+    : EVIDENCE_POLARITIES.ambiguousReference;
+}
 
-  return evidenceItems
-    .filter((evidence) => {
-      const haystack = normalizeChecklistTerm(`${evidence.title || ""} ${evidence.content || ""}`);
-      return terms.some((term) => haystack.includes(term));
-    })
-    .map((evidence) => evidence.id);
+function findChecklistEvidenceSupport(classifications, checklistItem) {
+  const terms = checklistTerms(checklistItem);
+
+  return classifications
+    .map(({ evidence, classification }) => classifyChecklistItemSupport(evidence, classification, checklistItem, terms))
+    .filter(Boolean);
+}
+
+function classifyChecklistItemSupport(evidence, classification, checklistItem, terms) {
+  const haystack = normalizeChecklistTerm(`${evidence.title || ""} ${evidence.content || ""}`);
+  const classificationMatch = (checklistItem.aliases || []).includes(classification.type);
+  const matchedTerms = terms.filter((term) => haystack.includes(term));
+  if (!classificationMatch && matchedTerms.length === 0) return null;
+
+  const text = `${evidence.title || ""} ${evidence.content || ""}`;
+  const taintHit = findPromptInjection(text);
+  if (taintHit) {
+    return {
+      evidenceId: evidence.id,
+      evidencePolarity: EVIDENCE_POLARITIES.taintedInstruction,
+      supportType: "tainted_evidence_only",
+      matchedTerms,
+      matchedPattern: taintHit
+    };
+  }
+
+  const absenceHit = findNearbyNegativeAbsencePattern(text, matchedTerms.length > 0 ? matchedTerms : terms);
+  if (absenceHit) {
+    return {
+      evidenceId: evidence.id,
+      evidencePolarity: EVIDENCE_POLARITIES.negativeAbsence,
+      supportType: "explicit_absence_mention",
+      matchedTerms,
+      matchedPattern: absenceHit
+    };
+  }
+
+  if (classification.type === "unknown" && matchedTerms.length === 0) {
+    return {
+      evidenceId: evidence.id,
+      evidencePolarity: EVIDENCE_POLARITIES.ambiguousReference,
+      supportType: "ambiguous_reference",
+      matchedTerms
+    };
+  }
+
+  return {
+    evidenceId: evidence.id,
+    evidencePolarity: EVIDENCE_POLARITIES.positivePresent,
+    supportType: "positive_evidence_match",
+    matchedTerms
+  };
+}
+
+function determineChecklistSupportType({
+  present,
+  required,
+  negativeEvidenceIds,
+  taintedEvidenceIds,
+  ambiguousEvidenceIds
+}) {
+  if (present) return "matched_positive_evidence";
+  if (taintedEvidenceIds.length > 0) return "tainted_evidence_only";
+  if (negativeEvidenceIds.length > 0) return "explicit_absence_mention";
+  if (ambiguousEvidenceIds.length > 0) return "ambiguous_reference_only";
+  return required ? "absence_from_checked_inventory" : "optional_absence";
+}
+
+function checklistTerms(checklistItem) {
+  return unique([
+    checklistItem.id,
+    checklistItem.label,
+    ...(checklistItem.aliases || []),
+    ...documentKeywordsForAliases(checklistItem.aliases || [])
+  ])
+    .map(normalizeChecklistTerm)
+    .filter((term) => term.length >= 4 || term === "vat");
+}
+
+function documentKeywordsForAliases(aliases) {
+  const aliasSet = new Set(aliases || []);
+  return documentRules.filter((rule) => aliasSet.has(rule.type)).flatMap((rule) => rule.keywords);
+}
+
+function findNegativeAbsencePattern(text) {
+  const normalized = normalizePolarityText(text);
+  for (const item of negativeAbsencePatterns) {
+    item.pattern.lastIndex = 0;
+    if (item.pattern.test(normalized)) return item.id;
+  }
+  return null;
+}
+
+function findNearbyNegativeAbsencePattern(text, normalizedTerms) {
+  const normalized = normalizePolarityText(text);
+  const termIndexes = normalizedTerms.flatMap((term) => findAllIndexes(normalized, term));
+  if (termIndexes.length === 0) return null;
+
+  for (const item of negativeAbsencePatterns) {
+    item.pattern.lastIndex = 0;
+    for (const match of normalized.matchAll(item.pattern)) {
+      const matchIndex = match.index ?? 0;
+      if (termIndexes.some((termIndex) => Math.abs(termIndex - matchIndex) <= 120)) {
+        return item.id;
+      }
+    }
+  }
+  return null;
+}
+
+function findAllIndexes(text, term) {
+  const indexes = [];
+  let index = text.indexOf(term);
+  while (index !== -1) {
+    indexes.push(index);
+    index = text.indexOf(term, index + term.length);
+  }
+  return indexes;
 }
 
 function normalizeChecklistTerm(value) {
@@ -525,6 +715,10 @@ function normalizeChecklistTerm(value) {
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+}
+
+function normalizePolarityText(value) {
+  return normalizeChecklistTerm(value);
 }
 
 function unique(values) {

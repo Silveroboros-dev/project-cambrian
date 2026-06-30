@@ -39,6 +39,7 @@ export const FAILURE_TAGS = [
 
 const FAILURE_TAG_IDS = new Set(FAILURE_TAGS.map((tag) => tag.id));
 const RATING_SOURCES = new Set(["fixture_seed", "human_capture", "not_captured"]);
+const CASE_SOURCES = new Set(["phase2_fixture", "manual_anonymized_packet", "real_anonymized_reviewer_case"]);
 
 export function validateCaseImport(record) {
   const errors = [];
@@ -91,6 +92,9 @@ export function validateCaseImport(record) {
   if (record.reviewerRating?.ratingSource && !RATING_SOURCES.has(record.reviewerRating.ratingSource)) {
     errors.push("reviewerRating.ratingSource must be fixture_seed, human_capture, or not_captured.");
   }
+  if (record.caseSource && !CASE_SOURCES.has(record.caseSource)) {
+    errors.push("caseSource must be phase2_fixture, manual_anonymized_packet, or real_anonymized_reviewer_case.");
+  }
 
   return { valid: errors.length === 0, errors };
 }
@@ -121,6 +125,7 @@ export function parseCaseImportJson(jsonText) {
 export function prepareManualCaseImport(record) {
   const prepared = {
     ...record,
+    caseSource: normalizeCaseSource(record.caseSource || "manual_anonymized_packet"),
     sourceSystem: "manual_anonymized_packet"
   };
   delete prepared.reviewerRating;
@@ -157,6 +162,7 @@ export function normalizeCaseImport(record, importedAt = new Date().toISOString(
     validation: {
       importVersion: record.importVersion,
       sampleCaseId: record.sampleCaseId || record.caseId,
+      caseSource: normalizeCaseSource(record.caseSource || record.sourceSystem),
       baseline: normalizeBaseline(record.baseline),
       reviewerRating: record.reviewerRating ? normalizeReviewerRating(record.reviewerRating) : null,
       traceAnnotations: normalizeTraceAnnotations(record.traceAnnotations || [], record.caseId, null, importedAt)
@@ -175,6 +181,17 @@ export function normalizeChecklist(checklist) {
     required: item.required !== false,
     aliases: Array.isArray(item.aliases) && item.aliases.length > 0 ? item.aliases : [item.id]
   }));
+}
+
+export function normalizeHumanMissingBaselineCapture({ baselineState = "not_captured", humanMissingItemIdsText = "" }) {
+  const humanMissingItemIds = parseMissingItemIds(humanMissingItemIdsText);
+  if (baselineState === "confirmed_none") {
+    return { humanMissingItemIds: [], humanMissingItemIdsCaptured: true };
+  }
+  if (baselineState === "confirmed_ids" && humanMissingItemIds.length > 0) {
+    return { humanMissingItemIds, humanMissingItemIdsCaptured: true };
+  }
+  return { humanMissingItemIds, humanMissingItemIdsCaptured: false };
 }
 
 export function createValidationRecord({
@@ -206,12 +223,14 @@ export function createValidationRecord({
     createdAt
   );
   const validationRecordId = `val_${caseRecord.id}_${runId || "no_run"}`;
+  const caseSource = normalizeCaseSource(caseRecord.validation?.caseSource || caseRecord.sourceSystem);
 
   return {
     id: validationRecordId,
     validationRecordId,
     caseId: caseRecord.id,
     sampleCaseId: caseRecord.validation?.sampleCaseId || caseRecord.id,
+    caseSource,
     runId,
     ratingId,
     baseline: normalizedBaseline,
@@ -272,6 +291,7 @@ export function createValidationPackage({
     caseId: caseRecord.id,
     runId: run.id,
     validationRecordId: validationRecord.validationRecordId || validationRecord.id,
+    caseSource: normalizeCaseSource(validationRecord.caseSource || caseRecord.validation?.caseSource || caseRecord.sourceSystem),
     case: caseRecord,
     run,
     validationRecord: {
@@ -322,6 +342,7 @@ export function buildOperatingMemo({ caseRecord, run, validationRecord }) {
   const output = run?.output;
   const baseline = normalizeBaseline(validationRecord?.baseline || caseRecord.validation?.baseline || {});
   const rating = normalizeReviewerRating(validationRecord?.reviewerRating || caseRecord.validation?.reviewerRating || {});
+  const caseSource = normalizeCaseSource(validationRecord?.caseSource || caseRecord.validation?.caseSource || caseRecord.sourceSystem);
   const failureTagIds = validationRecord?.failureTagIds || rating.failureTagIds;
   const evidenceIds = output?.document_inventory?.map((item) => item.evidence_id) || caseRecord.evidence.map((item) => item.id);
   const missingItems = output?.checklist?.filter((item) => item.status === "open") || [];
@@ -339,14 +360,16 @@ export function buildOperatingMemo({ caseRecord, run, validationRecord }) {
     `# Before/After Operating Memo: ${caseRecord.title}`,
     "",
     `Workflow: Treuhand document intake for ${caseRecord.period}.`,
+    `Case source: ${caseSource}.`,
     `Manual baseline: ${baseline.manualPrepMinutes} minutes and ${baseline.manualHandoffCount} handoff(s).`,
     output
       ? `Agent-assisted result: ${output.metrics.documents_processed} evidence item(s), ${output.metrics.completeness_score}% checklist completeness, ${output.metrics.missing_items_count} missing item(s).`
       : "Agent-assisted result: no agent run captured yet.",
     `Rating source: ${rating.ratingSource}.`,
+    `Operating proof category: ${caseSource === "real_anonymized_reviewer_case" && rating.ratingSource === "human_capture" ? "real reviewer evidence" : "not real reviewer operating proof"}.`,
     `Hours or minutes saved: ${rating.timeSavedMinutes} minutes estimated by reviewer.`,
     `Review burden created: ${reviewBurden}`,
-    `Evidence quality: ${output?.metrics.evidence_coverage ?? 0}% positive evidence coverage; missing-item claims checked ${evidenceIds.length} evidence item(s).`,
+    `Traceability coverage: ${output?.metrics.evidence_coverage ?? 0}% of factual/recommendation outputs carry evidence IDs; missing-item claims checked ${evidenceIds.length} evidence item(s).`,
     missingComparison.scored
       ? `Missing-item scoring: recall ${formatMetricPercent(missingComparison.missingItemRecall)}, precision ${formatMetricPercent(missingComparison.missingItemPrecision)}, false positives ${formatList(missingComparison.falsePositiveMissingItemIds)}, false negatives ${formatList(missingComparison.falseNegativeMissingItemIds)}.`
       : "Missing-item scoring: not scored - no human baseline missing item IDs captured.",
@@ -364,16 +387,11 @@ export function buildOperatingMemo({ caseRecord, run, validationRecord }) {
 }
 
 function normalizeBaseline(baseline) {
-  const hasHumanMissingItemIds = Object.prototype.hasOwnProperty.call(baseline || {}, "humanMissingItemIds");
-  const captured =
-    typeof baseline.humanMissingItemIdsCaptured === "boolean"
-      ? baseline.humanMissingItemIdsCaptured
-      : hasHumanMissingItemIds;
   return {
     manualPrepMinutes: Math.max(0, Number(baseline.manualPrepMinutes || 0)),
     manualHandoffCount: Math.max(0, Number(baseline.manualHandoffCount || 0)),
     humanMissingItemIds: Array.isArray(baseline.humanMissingItemIds) ? baseline.humanMissingItemIds : [],
-    humanMissingItemIdsCaptured: captured
+    humanMissingItemIdsCaptured: baseline.humanMissingItemIdsCaptured === true
   };
 }
 
@@ -430,6 +448,35 @@ function summarizeValidationMetrics({ run, reviewerRating, baseline }) {
   };
 }
 
+export function summarizeProofCategories(validationRecords = []) {
+  const records = validationRecords.map((record) => ({
+    ...record,
+    caseSource: normalizeCaseSource(record.caseSource)
+  }));
+  const fixtureSeedRecords = records.filter((record) => record.reviewerRating?.ratingSource === "fixture_seed");
+  const humanCaptureRecords = records.filter((record) => record.reviewerRating?.ratingSource === "human_capture");
+  const humanReviewedFixtureRecords = humanCaptureRecords.filter((record) => record.caseSource === "phase2_fixture");
+  const manualAnonymizedHumanRecords = humanCaptureRecords.filter((record) => record.caseSource === "manual_anonymized_packet");
+  const realAnonymizedReviewerRecords = humanCaptureRecords.filter(
+    (record) => record.caseSource === "real_anonymized_reviewer_case"
+  );
+
+  return {
+    fixtureSeedRecords,
+    humanCaptureRecords,
+    humanReviewedFixtureRecords,
+    manualAnonymizedHumanRecords,
+    realAnonymizedReviewerRecords,
+    counts: {
+      fixtureSeed: fixtureSeedRecords.length,
+      humanCapture: humanCaptureRecords.length,
+      humanReviewedFixture: humanReviewedFixtureRecords.length,
+      manualAnonymizedHuman: manualAnonymizedHumanRecords.length,
+      realAnonymizedReviewer: realAnonymizedReviewerRecords.length
+    }
+  };
+}
+
 function compareMissingItems({ humanMissingItemIds = [], agentMissingItemIds = [], humanMissingItemIdsCaptured = false }) {
   const human = new Set(humanMissingItemIds);
   const agent = new Set(agentMissingItemIds);
@@ -464,6 +511,17 @@ function compareMissingItems({ humanMissingItemIds = [], agentMissingItemIds = [
 
 function normalizeRatingSource(value) {
   return RATING_SOURCES.has(value) ? value : "not_captured";
+}
+
+export function normalizeCaseSource(value) {
+  return CASE_SOURCES.has(value) ? value : "manual_anonymized_packet";
+}
+
+function parseMissingItemIds(value) {
+  return String(value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function formatMetricPercent(value) {

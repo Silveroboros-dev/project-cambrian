@@ -157,7 +157,7 @@ Call out:
 - agent-assisted result;
 - minutes saved;
 - review burden;
-- evidence quality;
+- traceability coverage;
 - missing-item recall and precision;
 - recurring failure modes;
 - decision.
@@ -176,7 +176,7 @@ Show:
 - human captures versus fixture records;
 - human reviewer-estimated minutes saved;
 - human and fixture missing-item recall;
-- evidence coverage;
+- traceability coverage;
 - would-use-again rate;
 - failure tags.
 

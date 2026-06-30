@@ -40,7 +40,7 @@ For each candidate anonymized case:
 4. Run the Treuhand agent with the case checklist.
 5. Capture reviewer feedback as `ratingSource: "human_capture"`.
 6. Compute missing-item recall, precision, false positives, and false negatives against `baseline.humanMissingItemIds`.
-7. Generate an operating memo that distinguishes positive evidence coverage from missing-item absence claims.
+7. Generate an operating memo that distinguishes traceability coverage from missing-item absence claims.
 8. Export the validation package for reviewer/stakeholder follow-up.
 
 Continue the loop until one of these is true:

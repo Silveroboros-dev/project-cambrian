@@ -46,7 +46,7 @@ Manual baseline:
 Agent-assisted result:
 Hours or minutes saved:
 Review burden created:
-Evidence quality:
+Traceability coverage:
 Recurring failure modes:
 Owner/operator value:
 Decision:

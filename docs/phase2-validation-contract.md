@@ -157,3 +157,25 @@ Missing-item recall and precision must only be scored when human baseline missin
 ### AC-P2-21: Export Guard In Core Function
 
 `createValidationPackage()` must reject validation records whose reviewer rating source is not `human_capture`, so fixture or uncaptured records cannot be exported as operating evidence by bypassing the UI.
+
+### AC-P2-22: Evidence Polarity
+
+Evidence support used for checklist completion must carry one of `positive_present`, `negative_absence`, `ambiguous_reference`, or `tainted_instruction`.
+
+Negative absence phrases such as `not attached`, `wird nachgereicht`, `folgt später`, `noch offen`, `noch nicht erhalten`, `ausstehend`, and `MWST-Abrechnung fehlt` must not satisfy checklist completeness.
+
+### AC-P2-23: Tainted Evidence Completion Block
+
+Prompt-injection-tainted evidence may remain visible as reviewed source text, but it must not be the sole support that marks a required checklist item complete.
+
+### AC-P2-24: Explicit Human Baseline Confirmation
+
+Reviewer capture must treat human missing-item baseline as tri-state: not captured, confirmed none missing, or confirmed listed missing item IDs. A blank missing-item field must not be treated as an explicit confirmed-empty human baseline.
+
+### AC-P2-25: Proof Category Separation
+
+Validation records must preserve `caseSource` separately from `reviewerRating.ratingSource`. Metrics must distinguish fixture-seeded ratings, human review of synthetic fixtures, manual anonymized packets, and real anonymized reviewer cases. Only `real_anonymized_reviewer_case` records with `human_capture` ratings count as operating proof.
+
+### AC-P2-26: Traceability And Privacy Wording
+
+Memos and UI metrics must describe evidence-link coverage as traceability coverage, not evidence quality. Local privacy checks must block Swiss phone-number-like, AHV-like, and Swiss address-like identifiers in addition to the existing email, credential, IBAN, UID, and configured private-party checks.

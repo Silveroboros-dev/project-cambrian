@@ -16,9 +16,11 @@ import {
   createValidationPackage,
   createValidationRecord,
   getCaseChecklist,
+  normalizeHumanMissingBaselineCapture,
   normalizeCaseImport,
   parseCaseImportJson,
   runValidationSample,
+  summarizeProofCategories,
   validateValidationPackagePrivacy,
   validateCaseImport
 } from "./validation.js";
@@ -296,6 +298,7 @@ function renderValidation() {
       ${metricTile("Validation records", String(store.validationRecords.length))}
       ${metricTile("Active case", caseRecord.id)}
       ${metricTile("Rating source", latestRecord?.reviewerRating?.ratingSource || "none")}
+      ${metricTile("Case source", latestRecord?.caseSource || caseRecord.validation?.caseSource || caseRecord.sourceSystem || "manual")}
     </div>
 
     <section class="subpanel">
@@ -325,6 +328,7 @@ function renderValidation() {
         <div class="summary-grid two-col-grid">
           ${metricTile("Baseline minutes", baseline.manualPrepMinutes ?? "n/a")}
           ${metricTile("Manual handoffs", baseline.manualHandoffCount ?? "n/a")}
+          ${metricTile("Missing baseline", baseline.humanMissingItemIdsCaptured ? "confirmed" : "not captured")}
         </div>
         <h4>Configured checklist</h4>
         <div class="artifact-list compact-list">
@@ -474,11 +478,13 @@ function renderMetrics() {
   const avgMinutesSaved = average(completedRuns.map((run) => run.output.metrics.estimated_minutes_saved));
   const avgEvidenceCoverage = average(allRuns.map((run) => run.output.metrics.evidence_coverage));
   const overrideRate = calculateOverrideRate(store.reviewDecisions);
-  const humanRecords = store.validationRecords.filter((record) => record.reviewerRating?.ratingSource === "human_capture");
-  const fixtureRecords = store.validationRecords.filter((record) => record.reviewerRating?.ratingSource === "fixture_seed");
-  const avgReviewerSaved = average(humanRecords.map((record) => record.metrics.reviewerEstimatedMinutesSaved));
-  const wouldUseAgainRate = calculateWouldUseAgainRate(humanRecords);
-  const avgHumanMissingRecall = average(humanRecords.map((record) => record.metrics.missingItemRecall));
+  const proof = summarizeProofCategories(store.validationRecords);
+  const humanRecords = proof.humanCaptureRecords;
+  const fixtureRecords = proof.fixtureSeedRecords;
+  const realReviewerRecords = proof.realAnonymizedReviewerRecords;
+  const avgReviewerSaved = average(realReviewerRecords.map((record) => record.metrics.reviewerEstimatedMinutesSaved));
+  const wouldUseAgainRate = calculateWouldUseAgainRate(realReviewerRecords);
+  const avgHumanMissingRecall = average(realReviewerRecords.map((record) => record.metrics.missingItemRecall));
   const avgFixtureMissingRecall = average(fixtureRecords.map((record) => record.metrics.missingItemRecall));
 
   views.metrics.innerHTML = `
@@ -489,19 +495,24 @@ function renderMetrics() {
       </div>
     </div>
     <div class="summary-grid metric-grid">
+      ${metricTile("Real reviewer cases", String(realReviewerRecords.length))}
+      ${metricTile("Real reviewer saved", avgReviewerSaved === null ? "n/a" : `${avgReviewerSaved} min`)}
+      ${metricTile("Real missing recall", avgHumanMissingRecall === null ? "n/a" : `${avgHumanMissingRecall}%`)}
+      ${metricTile("Real would use again", wouldUseAgainRate === null ? "n/a" : `${wouldUseAgainRate}%`)}
+    </div>
+    <div class="summary-grid metric-grid">
       ${metricTile("Human captures", String(humanRecords.length))}
-      ${metricTile("Human saved", avgReviewerSaved === null ? "n/a" : `${avgReviewerSaved} min`)}
-      ${metricTile("Human missing recall", avgHumanMissingRecall === null ? "n/a" : `${avgHumanMissingRecall}%`)}
-      ${metricTile("Would use again", wouldUseAgainRate === null ? "n/a" : `${wouldUseAgainRate}%`)}
+      ${metricTile("Human-reviewed fixtures", String(proof.counts.humanReviewedFixture))}
+      ${metricTile("Manual packet captures", String(proof.counts.manualAnonymizedHuman))}
+      ${metricTile("Fixture seed records", String(fixtureRecords.length))}
     </div>
     <div class="summary-grid metric-grid">
-      ${metricTile("Fixture records", String(fixtureRecords.length))}
       ${metricTile("Fixture missing recall", avgFixtureMissingRecall === null ? "n/a" : `${avgFixtureMissingRecall}%`)}
-      ${metricTile("Evidence coverage", avgEvidenceCoverage === null ? "n/a" : `${avgEvidenceCoverage}%`)}
+      ${metricTile("Traceability coverage", avgEvidenceCoverage === null ? "n/a" : `${avgEvidenceCoverage}%`)}
       ${metricTile("Total failure tags", String(store.validationRecords.flatMap((record) => record.failureTagIds).length))}
+      ${metricTile("Reviewed cases", String(reviewedCaseIds.size))}
     </div>
     <div class="summary-grid metric-grid">
-      ${metricTile("Reviewed cases", String(reviewedCaseIds.size))}
       ${metricTile("Agent saved", avgMinutesSaved === null ? "n/a" : `${avgMinutesSaved} min`)}
       ${metricTile("Override rate", overrideRate === null ? "n/a" : `${overrideRate}%`)}
       ${metricTile("Validation records", String(store.validationRecords.length))}
@@ -577,7 +588,7 @@ function handleValidationImportSubmit(event) {
   store.activeCaseId = caseRecord.id;
   store.validationImportStatus = {
     status: "loaded",
-    message: `${caseRecord.id} loaded as manual_anonymized_packet.`,
+    message: `${caseRecord.id} loaded as ${caseRecord.validation.caseSource}.`,
     errors: [],
     caseId: caseRecord.id
   };
@@ -708,11 +719,15 @@ function handleValidationSubmit(event) {
     return;
   }
 
+  const humanMissingBaseline = normalizeHumanMissingBaselineCapture({
+    baselineState: formData.get("humanMissingBaselineState"),
+    humanMissingItemIdsText: formData.get("humanMissingItemIds")
+  });
   const baseline = {
     manualPrepMinutes: Number(formData.get("manualPrepMinutes")),
     manualHandoffCount: Number(formData.get("manualHandoffCount")),
-    humanMissingItemIds: parseMissingItemIds(formData.get("humanMissingItemIds")),
-    humanMissingItemIdsCaptured: true
+    humanMissingItemIds: humanMissingBaseline.humanMissingItemIds,
+    humanMissingItemIdsCaptured: humanMissingBaseline.humanMissingItemIdsCaptured
   };
   const reviewerRating = {
     ratingSource: "human_capture",
@@ -877,7 +892,10 @@ function renderRun(run) {
         <h4>Checklist</h4>
         <ul class="plain-list">
           ${output.checklist
-            .map((item) => `<li><span class="${item.status === "complete" ? "ok" : "warn"}">${item.status}</span> ${escapeHtml(item.item)}</li>`)
+            .map(
+              (item) =>
+                `<li><span class="${item.status === "complete" ? "ok" : "warn"}">${item.status}</span> ${escapeHtml(item.item)} <small>${escapeHtml(item.claimSupport?.supportType || "unknown_support")}</small></li>`
+            )
             .join("")}
         </ul>
       </div>
@@ -965,6 +983,7 @@ function renderValidationExportPanel(caseRecord, latestRun, latestRecord) {
       : "";
   const canBuild = latestRun && latestRecord;
   const source = latestRecord?.reviewerRating?.ratingSource || "none";
+  const caseSource = latestRecord?.caseSource || caseRecord.validation?.caseSource || caseRecord.sourceSystem || "manual";
 
   return `
     <div class="summary-grid metric-grid">
@@ -972,6 +991,7 @@ function renderValidationExportPanel(caseRecord, latestRun, latestRecord) {
       ${metricTile("Run", latestRun ? latestRun.id : "none")}
       ${metricTile("Validation", latestRecord ? latestRecord.validationRecordId : "none")}
       ${metricTile("Rating source", source)}
+      ${metricTile("Case source", caseSource)}
     </div>
     <div class="button-row">
       <button class="primary-button" id="build-validation-export" title="Build validation package" ${canBuild ? "" : "disabled"}>Build export package</button>
@@ -1020,6 +1040,11 @@ function renderValidationCaptureForm(caseRecord, latestRun, latestRecord) {
   const baseline = latestRecord?.baseline || caseRecord.validation?.baseline || {};
   const rating = latestRecord?.reviewerRating || caseRecord.validation?.reviewerRating || {};
   const selectedTags = new Set(latestRecord?.failureTagIds || rating.failureTagIds || []);
+  const missingBaselineState = baseline.humanMissingItemIdsCaptured
+    ? (baseline.humanMissingItemIds || []).length > 0
+      ? "confirmed_ids"
+      : "confirmed_none"
+    : "not_captured";
   const traceNote =
     latestRecord?.traceAnnotations?.[0]?.note ||
     caseRecord.validation?.traceAnnotations?.[0]?.note ||
@@ -1037,10 +1062,22 @@ function renderValidationCaptureForm(caseRecord, latestRun, latestRecord) {
           <input name="manualHandoffCount" type="number" min="0" step="1" value="${escapeHtml(baseline.manualHandoffCount ?? 0)}" required />
         </label>
       </div>
-      <label>
-        Human-found missing checklist item IDs
+      <fieldset class="tag-fieldset">
+        <legend>Human missing-item baseline</legend>
+        <label class="checkbox-label">
+          <input name="humanMissingBaselineState" type="radio" value="not_captured" ${missingBaselineState === "not_captured" ? "checked" : ""} />
+          Not captured yet
+        </label>
+        <label class="checkbox-label">
+          <input name="humanMissingBaselineState" type="radio" value="confirmed_none" ${missingBaselineState === "confirmed_none" ? "checked" : ""} />
+          Confirmed: no missing checklist items
+        </label>
+        <label class="checkbox-label">
+          <input name="humanMissingBaselineState" type="radio" value="confirmed_ids" ${missingBaselineState === "confirmed_ids" ? "checked" : ""} />
+          Confirmed: listed missing checklist item IDs
+        </label>
         <input name="humanMissingItemIds" value="${escapeHtml((baseline.humanMissingItemIds || []).join(", "))}" placeholder="vat_report, payroll_summary" />
-      </label>
+      </fieldset>
       <div class="form-row">
         <label>
           Usefulness
@@ -1340,13 +1377,6 @@ function calculateWouldUseAgainRate(records) {
   if (records.length === 0) return null;
   const positive = records.filter((record) => record.reviewerRating?.wouldUseAgain).length;
   return Math.round((positive / records.length) * 100);
-}
-
-function parseMissingItemIds(value) {
-  return String(value || "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
 }
 
 function formatTime(value) {

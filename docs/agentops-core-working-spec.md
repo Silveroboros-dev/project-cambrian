@@ -47,7 +47,7 @@ The manifesto matters, but it must be expressed as requirements an evaluator can
 
 | Axis | Default target | Tradeoff accepted |
 |---|---|---|
-| Cost vs value | Agent cost per case must be materially lower than estimated admin value created. In the current prototype, external model cost is zero. | Spend more only when it reduces human review time or improves evidence coverage enough to justify the run. |
+| Cost vs value | Agent cost per case must be materially lower than estimated admin value created. In the current prototype, external model cost is zero. | Spend more only when it reduces human review time or improves traceability coverage enough to justify the run. |
 | Latency vs accuracy | First useful local output should appear in seconds for small cases; future production target is under 5 minutes for ordinary intake cases. | Prefer deterministic fast output first, then slower extraction only for low-confidence or high-value cases. |
 | Recall vs precision | Missing-document detection should favor recall over precision, because false positives are cheaper than missed filings or incomplete review packs. | Tolerate some extra reviewer checks if total review burden stays below manual baseline. |
 | Autonomy vs control | Client-facing, regulated, financial, and memory-writing actions require approval. | Slower workflow is acceptable where trust or compliance risk is material. |

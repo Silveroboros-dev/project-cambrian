@@ -21,6 +21,7 @@ It is not a production connector format. It is a manual, inspectable case packet
   "clientName": "Sample Client A",
   "period": "2026-03",
   "owner": "Client manager",
+  "caseSource": "phase2_fixture",
   "sourceSystem": "phase2_fixture",
   "baseline": {
     "manualPrepMinutes": 52,
@@ -85,6 +86,7 @@ It is not a production connector format. It is a manual, inspectable case packet
 | Field | Meaning |
 |---|---|
 | `sampleCaseId` | Fixture identity when bundled in the repo. |
+| `caseSource` | Proof-category label: `phase2_fixture`, `manual_anonymized_packet`, or `real_anonymized_reviewer_case`. |
 | `sourceSystem` | Source label such as `manual_anonymized_packet` or `phase2_fixture`. |
 | `baseline.humanMissingItemIds` | Missing checklist item IDs found by a human baseline. |
 | `baseline.humanMissingItemIdsCaptured` | `true` when the reviewer has explicitly confirmed the human missing-item baseline, including an empty list. |
@@ -92,7 +94,15 @@ It is not a production connector format. It is a manual, inspectable case packet
 | `reviewerRating.ratingSource` | `fixture_seed` for bundled demo ratings, `human_capture` for ratings entered during a reviewer session. |
 | `traceAnnotations` | Human notes attached to a case or run. |
 
-Fixture ratings are useful for demonstrating the loop, but they are not evidence of business value. Metrics must keep `fixture_seed` records separate from `human_capture` records.
+Fixture ratings are useful for demonstrating the loop, but they are not evidence of business value. Metrics must keep `fixture_seed` records separate from `human_capture` records and must keep `caseSource` separate from `reviewerRating.ratingSource`.
+
+Only `caseSource: "real_anonymized_reviewer_case"` plus `reviewerRating.ratingSource: "human_capture"` counts as operating-proof evidence. Human review of a synthetic fixture can test the UI, but it must not be aggregated as real reviewer proof.
+
+Human missing-item scoring is tri-state:
+
+- `humanMissingItemIdsCaptured: false` or omitted means no scoring;
+- `humanMissingItemIdsCaptured: true` with an empty `humanMissingItemIds` array means the reviewer explicitly confirmed no missing checklist items;
+- `humanMissingItemIdsCaptured: true` with IDs means the reviewer explicitly confirmed the listed missing items.
 
 ## Validation Metrics
 
@@ -105,6 +115,8 @@ Agent checklist output must preserve `checklistItemId` so the validation record 
 - missing-item recall and precision.
 
 Missing-item claims are supported by absence from the checked evidence inventory, not by a single positive evidence document.
+
+Evidence used for checklist completion is polarity-aware. Mentions that a document is missing, not attached, still open, will follow, `fehlt`, `wird nachgereicht`, `folgt später`, `noch offen`, `noch nicht erhalten`, or `ausstehend` do not satisfy checklist completion. Prompt-injection-tainted evidence may be shown for review, but it cannot close a checklist item automatically.
 
 ## Local Import And Export
 
@@ -124,7 +136,7 @@ After an agent run and `human_capture` reviewer rating are saved, the app can ex
 }
 ```
 
-The export package is blocked if a local privacy check finds personal emails, credential-like strings, IBAN-shaped identifiers, or configured private-party terms. Prompt-injection taint markers on context packets must remain visible in the package.
+The export package is blocked if a local privacy check finds personal emails, credential-like strings, IBAN-shaped identifiers, Swiss UID-shaped identifiers, Swiss phone-number-like text, AHV-like identifiers, Swiss address-like text, or configured private-party terms. Prompt-injection taint markers on context packets must remain visible in the package.
 
 ## Failure Tags
 

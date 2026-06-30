@@ -11,10 +11,12 @@ import {
   createValidationPackage,
   createValidationRecord,
   getCaseChecklist,
+  normalizeHumanMissingBaselineCapture,
   normalizeCaseImport,
   parseCaseImportJson,
   prepareManualCaseImport,
   runValidationSample,
+  summarizeProofCategories,
   validateValidationPackagePrivacy,
   validateCaseImport
 } from "../src/validation.js";
@@ -24,19 +26,21 @@ test("Phase 2 contract and import docs define required acceptance criteria", asy
   const importDoc = await readFile("docs/phase2-case-import-format.md", "utf8");
   const app = await readFile("src/app.js", "utf8");
 
-  for (let index = 1; index <= 21; index += 1) {
+  for (let index = 1; index <= 26; index += 1) {
     assert.match(contract, new RegExp(`AC-P2-${index}`));
   }
   assert.match(importDoc, new RegExp(CASE_IMPORT_VERSION));
   assert.match(importDoc, new RegExp(VALIDATION_PACKAGE_VERSION));
   assert.match(importDoc, /manualPrepMinutes/);
   assert.match(importDoc, /humanMissingItemIdsCaptured/);
+  assert.match(importDoc, /caseSource/);
   assert.match(importDoc, /ratingSource/);
   assert.match(importDoc, /reviewerRating/);
   assert.match(importDoc, /traceAnnotations/);
   assert.match(importDoc, /contextPackets/);
   assert.match(app, /validation-import-form/);
   assert.match(app, /build-validation-export/);
+  assert.match(app, /humanMissingBaselineState/);
 });
 
 test("bundled sample cases are valid anonymized Phase 2 imports", () => {
@@ -47,6 +51,7 @@ test("bundled sample cases are valid anonymized Phase 2 imports", () => {
     const validation = validateCaseImport(sample);
     assert.equal(validation.valid, true, validation.errors.join(" "));
     assert.equal(sample.importVersion, CASE_IMPORT_VERSION);
+    assert.equal(sample.caseSource, "phase2_fixture");
     assert.match(sample.clientName, /^Sample Client/);
     assert.equal(sample.reviewerRating.ratingSource, "fixture_seed");
     assert.ok(sample.baseline.manualPrepMinutes > 0);
@@ -55,7 +60,7 @@ test("bundled sample cases are valid anonymized Phase 2 imports", () => {
   }
 });
 
-test("manual JSON import validates, strips seeded ratings, and loads as manual anonymized packet", () => {
+test("manual JSON import validates, strips seeded ratings, and preserves case source", () => {
   const packet = {
     ...sampleCaseImports[0],
     sampleCaseId: "manual_packet_001",
@@ -70,12 +75,20 @@ test("manual JSON import validates, strips seeded ratings, and loads as manual a
   const parsed = parseCaseImportJson(JSON.stringify(packet));
   assert.equal(parsed.valid, true, parsed.errors.join(" "));
   assert.equal(parsed.record.sourceSystem, "manual_anonymized_packet");
+  assert.equal(parsed.record.caseSource, "phase2_fixture");
   assert.equal("reviewerRating" in parsed.record, false);
 
   const caseRecord = normalizeCaseImport(parsed.record, "2026-06-30T00:00:00.000Z");
   assert.equal(caseRecord.id, "case_manual_packet_001");
   assert.equal(caseRecord.sourceSystem, "manual_anonymized_packet");
+  assert.equal(caseRecord.validation.caseSource, "phase2_fixture");
   assert.equal(caseRecord.validation.reviewerRating, null);
+
+  const manualPacket = { ...packet };
+  delete manualPacket.caseSource;
+  const manualParsed = parseCaseImportJson(JSON.stringify(manualPacket));
+  assert.equal(manualParsed.valid, true, manualParsed.errors.join(" "));
+  assert.equal(manualParsed.record.caseSource, "manual_anonymized_packet");
 });
 
 test("manual JSON import rejects invalid JSON, invalid packets, and privacy issues", () => {
@@ -114,17 +127,63 @@ test("sample cases run end to end and produce validation records and operating m
     assert.ok(result.validationRecord.baseline.manualPrepMinutes > 0);
     assert.ok(result.validationRecord.reviewerRating.ratingId);
     assert.equal(result.validationRecord.reviewerRating.ratingSource, "fixture_seed");
+    assert.equal(result.validationRecord.caseSource, "phase2_fixture");
     assert.equal(result.validationRecord.baseline.humanMissingItemIdsCaptured, true);
     assert.equal(result.validationRecord.metrics.missingItemRecall, 100);
     assert.equal(result.validationRecord.metrics.missingItemPrecision, 100);
     assert.ok(result.validationRecord.traceAnnotations[0].runId === result.run.id);
     assert.match(result.memo, /Before\/After Operating Memo/);
-    assert.match(result.memo, /Evidence quality:/);
+    assert.match(result.memo, /Traceability coverage:/);
+    assert.doesNotMatch(result.memo, /Evidence quality:/);
     assert.match(result.memo, /Rating source: fixture_seed/);
+    assert.match(result.memo, /Operating proof category: not real reviewer operating proof/);
     assert.match(result.memo, /Missing-item scoring:/);
     assert.ok(result.output.recommendations.every((item) => item.evidence_ids.length > 0));
     assert.ok(result.output.checklist.every((item) => item.checklistItemId && item.claimSupport?.checkedEvidenceIds));
   }
+});
+
+test("human missing-item baseline capture is tri-state and blank IDs are not confirmed empty", () => {
+  assert.deepEqual(
+    normalizeHumanMissingBaselineCapture({
+      baselineState: "not_captured",
+      humanMissingItemIdsText: ""
+    }),
+    {
+      humanMissingItemIds: [],
+      humanMissingItemIdsCaptured: false
+    }
+  );
+  assert.deepEqual(
+    normalizeHumanMissingBaselineCapture({
+      baselineState: "confirmed_ids",
+      humanMissingItemIdsText: ""
+    }),
+    {
+      humanMissingItemIds: [],
+      humanMissingItemIdsCaptured: false
+    }
+  );
+  assert.deepEqual(
+    normalizeHumanMissingBaselineCapture({
+      baselineState: "confirmed_none",
+      humanMissingItemIdsText: ""
+    }),
+    {
+      humanMissingItemIds: [],
+      humanMissingItemIdsCaptured: true
+    }
+  );
+  assert.deepEqual(
+    normalizeHumanMissingBaselineCapture({
+      baselineState: "confirmed_ids",
+      humanMissingItemIdsText: "vat_report, payroll_summary"
+    }),
+    {
+      humanMissingItemIds: ["vat_report", "payroll_summary"],
+      humanMissingItemIdsCaptured: true
+    }
+  );
 });
 
 test("validation package export includes scoped artifacts, taint, and privacy gate", () => {
@@ -200,6 +259,27 @@ test("validation package export includes scoped artifacts, taint, and privacy ga
   assert.ok(privacy.issues.some((issue) => issue.id === "configured_private_party_term"));
 });
 
+test("privacy gate blocks Swiss phone, AHV, and address-like text", () => {
+  const result = parseCaseImportJson(
+    JSON.stringify({
+      ...sampleCaseImports[0],
+      sampleCaseId: "manual_privacy_swiss_identifiers",
+      caseId: "case_manual_privacy_swiss_identifiers",
+      evidence: [
+        {
+          ...sampleCaseImports[0].evidence[0],
+          content: "Call +41 79 000 00 00. AHV 756.0000.0000.00. Meet at Musterstrasse 1, 8000 Musterstadt."
+        }
+      ]
+    })
+  );
+
+  assert.equal(result.valid, false);
+  assert.match(result.errors.join(" "), /Swiss phone-number-like/);
+  assert.match(result.errors.join(" "), /Swiss AHV-like/);
+  assert.match(result.errors.join(" "), /Swiss address-like/);
+});
+
 test("memo before reviewer capture is not labeled human_capture", () => {
   const caseRecord = normalizeCaseImport(
     {
@@ -269,6 +349,70 @@ test("missing-item scoring is unscored when human baseline is not captured", () 
   assert.equal(record.metrics.missingItemPrecision, null);
   assert.equal(record.metrics.missingItemComparison.scored, false);
   assert.match(record.memo, /Missing-item scoring: not scored/);
+});
+
+test("proof categories separate human-reviewed fixtures from real anonymized reviewer cases", () => {
+  const fixtureCase = normalizeCaseImport(sampleCaseImports[0], "2026-06-30T00:00:00.000Z");
+  const fixtureOutput = runTreuhandAgent(fixtureCase, getCaseChecklist(fixtureCase));
+  const fixtureRun = {
+    id: "run_human_reviewed_fixture",
+    caseId: fixtureCase.id,
+    output: fixtureOutput
+  };
+  const humanReviewedFixture = createValidationRecord({
+    caseRecord: fixtureCase,
+    run: fixtureRun,
+    baseline: fixtureCase.validation.baseline,
+    reviewerRating: {
+      ratingSource: "human_capture",
+      overallUsefulness: 5,
+      checklistTrust: 5,
+      evidenceTraceability: 5,
+      timeSavedMinutes: 21,
+      wouldUseAgain: true
+    },
+    traceNote: "Human reviewed a bundled fixture.",
+    createdAt: "2026-06-30T00:00:00.000Z"
+  });
+
+  const realCase = normalizeCaseImport(
+    prepareManualCaseImport({
+      ...sampleCaseImports[0],
+      sampleCaseId: "real_reviewer_packet_001",
+      caseId: "case_real_reviewer_packet_001",
+      caseSource: "real_anonymized_reviewer_case"
+    }),
+    "2026-06-30T00:00:00.000Z"
+  );
+  const realOutput = runTreuhandAgent(realCase, getCaseChecklist(realCase));
+  const realRun = {
+    id: "run_real_reviewer_packet_001",
+    caseId: realCase.id,
+    output: realOutput
+  };
+  const realRecord = createValidationRecord({
+    caseRecord: realCase,
+    run: realRun,
+    baseline: realCase.validation.baseline,
+    reviewerRating: {
+      ratingSource: "human_capture",
+      overallUsefulness: 4,
+      checklistTrust: 4,
+      evidenceTraceability: 5,
+      timeSavedMinutes: 18,
+      wouldUseAgain: true
+    },
+    traceNote: "Human reviewed a real anonymized packet.",
+    createdAt: "2026-06-30T00:00:00.000Z"
+  });
+  const proof = summarizeProofCategories([humanReviewedFixture, realRecord]);
+
+  assert.equal(humanReviewedFixture.caseSource, "phase2_fixture");
+  assert.equal(realRecord.caseSource, "real_anonymized_reviewer_case");
+  assert.equal(proof.counts.humanCapture, 2);
+  assert.equal(proof.counts.humanReviewedFixture, 1);
+  assert.equal(proof.counts.realAnonymizedReviewer, 1);
+  assert.deepEqual(proof.realAnonymizedReviewerRecords.map((record) => record.id), [realRecord.id]);
 });
 
 test("validation package export rejects non-human-captured validation records", () => {
