@@ -37,7 +37,7 @@ test("Situation Room contract and UI entry point exist", async () => {
   const styles = await readFile("src/styles.css", "utf8");
   const situationRoomSource = await readFile("src/situationRoom.js", "utf8");
 
-  for (let index = 1; index <= 39; index += 1) {
+  for (let index = 1; index <= 40; index += 1) {
     assert.match(contract, new RegExp(`AC-SR-${index}:`));
   }
 
@@ -54,6 +54,7 @@ test("Situation Room contract and UI entry point exist", async () => {
   assert.match(contract, /Situation Trace Chain/);
   assert.match(contract, /Demo Readiness Report/);
   assert.match(contract, /Trace Chain Has No External Effects/);
+  assert.match(contract, /Demo Focus Pointers/);
   assert.match(contract, /synthetic_local/);
   assert.match(demoScript, /Event Source/);
   assert.match(demoScript, /Approval is not the end of the loop/);
@@ -85,6 +86,12 @@ test("Situation Room contract and UI entry point exist", async () => {
   assert.match(app, /buildSituationTraceChain/);
   assert.match(app, /buildSituationDemoReadinessReport/);
   assert.match(app, /Demo readiness/);
+  assert.match(app, /Demo focus/);
+  assert.match(app, /What just happened/);
+  assert.match(app, /Where to look/);
+  assert.match(app, /Why it matters/);
+  assert.match(app, /Next click/);
+  assert.match(app, /demo-focus-target/);
   assert.match(app, /Select first pending next step across rooms locally/);
   assert.match(app, /Approve all demo-safe approvals across rooms/);
   assert.match(app, /Select locally/);
@@ -102,6 +109,9 @@ test("Situation Room contract and UI entry point exist", async () => {
   assert.match(styles, /word-break: normal;/);
   assert.match(styles, /id-chip/);
   assert.match(styles, /event-source-panel/);
+  assert.match(styles, /demo-focus-strip/);
+  assert.match(styles, /demo-focus-target/);
+  assert.match(styles, /border-left/);
   assert.doesNotMatch(app, /<details class="agent-status-card"/);
   assert.match(situationRoomSource, /runSituationDemoAct/);
   assert.match(situationRoomSource, /situationSourceEvents/);
@@ -116,6 +126,7 @@ test("Situation Room contract and UI entry point exist", async () => {
   assert.match(situationRoomSource, /actRecordsById/);
   assert.match(situationRoomSource, /manual_tag_reused_demo_act/);
   assert.match(situationRoomSource, /chatbotContrast/);
+  assert.match(situationRoomSource, /demoFocus/);
   assert.match(app, /created:/);
   assert.doesNotMatch(app, /real Gmail|Slack|IAM|browser DLP|Drive|telemetry|email sending|access grant|memory promotion|LLM execution/i);
   assert.doesNotMatch(situationRoomSource, /real Gmail|Slack|IAM|browser DLP|Drive|telemetry|email sent|access granted|memory promoted|LLM execution/i);
@@ -205,10 +216,25 @@ test("demo conductor acts create visible current-run deltas", () => {
   assert.ok(result.cards.every((card) => card.sourceEventId === result.sourceEvent.id));
   assert.match(store.situationDemoConductor.lastAct.chatbotContrast, /pasted/);
   assert.match(store.situationDemoConductor.lastAct.cambrianContrast, /Stops the risky upload/);
+  assert.match(store.situationDemoConductor.lastAct.demoFocus.happened, /Confidential upload/);
+  assert.ok(store.situationDemoConductor.lastAct.demoFocus.targets.includes("trace_chain"));
+  assert.ok(store.situationDemoConductor.lastAct.demoFocus.targets.includes("artifact_packs"));
   assert.equal(store.situationLastAction.status, "demo_act_completed");
   assert.equal(store.situationLastAction.sourceEventId, result.sourceEvent.id);
   assert.equal(store.activeSituationRoomId, "room_security");
   assert.equal(store.activeSituationPack, "cards");
+});
+
+test("all demo scenarios carry focus pointers to relevant proof blocks", () => {
+  for (const scenario of SITUATION_ROOM_SCENARIOS) {
+    assert.ok(scenario.demoFocus, `${scenario.id} has demo focus`);
+    assert.match(scenario.demoFocus.happened, /\S/);
+    assert.match(scenario.demoFocus.look, /->/);
+    assert.match(scenario.demoFocus.proof, /\S/);
+    assert.match(scenario.demoFocus.next, /\S/);
+    assert.ok(scenario.demoFocus.targets.includes("trace_chain"), `${scenario.id} points to trace chain`);
+    assert.ok(scenario.demoFocus.targets.length >= 3, `${scenario.id} has multiple focus targets`);
+  }
 });
 
 test("demo conductor reselects completed acts without duplicating artifacts", () => {

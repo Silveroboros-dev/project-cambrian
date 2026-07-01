@@ -1,15 +1,69 @@
 # Situation Room Demo Script
 
-Version: 0.1  
-Date: 2026-06-30  
-Audience: stakeholder, owner/operator, advisor, or internal demo review  
-Target length: 4-6 minutes  
+Version: 0.2
+Date: 2026-07-01
+Audience: stakeholder, Swiss SME operator, Treuhand founder, workflow owner, advisor, or internal demo review
+Target length: 10-14 minutes
 
-## Demo Claim
+## Demo Objective
 
-Project Cambrian is a local Situation Room for trusted Swiss Treuhand workflows. Humans tag workflow and control agents into shared rooms; agents create typed, evidence-linked cards and governed work orders; sensitive actions require human approval; validation records and metrics separate synthetic fixtures from real reviewer proof.
+This demo must convince the viewer of one practical claim:
 
-This is not production proof. It is a local demo of the operating model before asking for 3-5 anonymized real Treuhand cases.
+> Project Cambrian is a controlled agent operating harness for trusted Swiss service workflows. It helps human experts handle more repetitive work with better context, safer gates, stronger traceability, and clearer follow-through than a generic chatbot or one-off agent prompt.
+
+The active proof is Treuhand/accounting document intake and control workflows. The broader idea is not to launch a fund, sell a generic AI platform, or automate professional judgment. The near-term objective is to prove measurable operating lift in one workflow: minutes saved, faster response, fewer handoff misses, clearer evidence, and reviewer trust.
+
+Use this script to show:
+
+- one Treuhand workflow agent plus five control agents;
+- the Situation Room as a meta-harness, not just chat;
+- typed cards, work orders, approvals, trace chains, local logs, and metrics;
+- human gates before client-facing, access, or memory actions;
+- per-agent journeys that can be separated, tuned, and later automated where safe;
+- a one-week continuity follow-up without adding production infrastructure.
+
+## Opening Value Proposition
+
+Start on the `Situation` tab. Say:
+
+> Many Swiss service SMEs have loyal clients and trusted human relationships, but their back office is still too manual: document chasing, fragmented email context, review packs, missing-item checks, onboarding requests, security exceptions, handoffs, and recurring control reviews.
+>
+> Project Cambrian is not trying to replace the advisor. It is trying to give the advisor an AI-native back office: agents prepare the work, check completeness, route risk, leave an audit trail, and stop at human approval where trust or compliance matters.
+
+Then make the generic-bot contrast explicit:
+
+> A generic chatbot is useful when a human already knows what to paste, what to ask, and what to verify. The problem in operations is different. Context arrives over time, different agents own different parts of the journey, risky actions need gates, and the organization needs to reconstruct what happened later. This demo shows that operating loop.
+
+Set the proof boundary:
+
+> Everything here is synthetic and local. There is no Gmail polling, Slack integration, browser monitoring, IAM change, email sending, LLM call, or production database. The point is to test the operating model before asking for anonymized real Treuhand cases.
+
+If the viewer asks whether this exact implementation is required, say:
+
+> This is a deliberately rich local harness for demonstration. A real implementation can be simpler or more complex. A small firm might start with one workflow agent, one approval gate, and local JSON imports. A larger operator might later add private connectors, role-based access, an append-only audit store, and partial automation. The invariant is the same: context, agent work, gates, traceability, and measured value.
+
+## Feature Overview Before Clicking
+
+Keep this under one minute.
+
+Show the top guide, active agents, room list, Demo conductor, pending approvals, and artifact packs.
+
+Say:
+
+> The Situation Room is the meta-harness. It is the surface where humans and agents coordinate, but the valuable object is not the chat message. The valuable objects are typed cards, work orders, approval gates, trace chains, local logs, and validation metrics.
+
+Name the six active agents:
+
+- `A-TREU-001` prepares the Treuhand intake package.
+- `A-INGEST-001` normalizes incoming evidence into context packets.
+- `A-SEC-001` detects sensitive content and risky instructions.
+- `A-AUTH-001` handles permissions, least privilege, and approval gates.
+- `A-GAP-001` watches handoffs and proposes missing skills or memory candidates.
+- `A-CAD-001` performs cadence, audit, and operating review.
+
+Then say:
+
+> This is stronger than a generic agent because the journeys are segregated. Security does not become accounting. Authorization does not become memory. Cadence does not silently execute work. Each agent has a job, allowed actions, forbidden actions, and review boundaries. Later, if evidence proves a step is low-risk and repeatable, that step can move toward full automation. Sensitive steps stay gated.
 
 ## Setup
 
@@ -29,76 +83,256 @@ http://127.0.0.1:5173
 
 The app opens on `Situation`.
 
-## Opening Talk Track
+Before the live demo, click `Reset demo state`.
 
-Use this:
+Say:
 
-> This is not a Slack clone, not Gmail integration, not browser DLP, not IAM, and not an autonomous accounting system. It is a local operating model for testing governed agent-assisted Treuhand workflows.
+> Reset gives us a clean local demo. The numbered acts create visible artifacts. Nothing here is being fetched from or sent to external systems.
 
-Then set the proof boundary:
+## Presenter Rule
 
-> Everything here is synthetic/local. The demo shows how the operating loop would work: tags become work orders, agents create typed cards, sensitive actions stop at human approval, and validation remains separate from fixture proof.
+Use `Demo focus` as the rail for the walkthrough. After every act, read the four fields:
 
-## Click Path
+- `What just happened`;
+- `Where to look`;
+- `Why it matters`;
+- `Next click`.
 
-### 1. Situation Room Boundary
+Then show only the highlighted blocks. This prevents the viewer from drowning in information while still proving that the artifacts exist.
 
-Start on `Situation`.
+## Demo Walkthrough
+
+### Act 1: Inbound Email Intake
+
+Click `Inbound email intake`.
+
+Say:
+
+> This simulates an email hitting the mailbox inside an intake window. A generic chatbot would wait until someone pasted the email and explained the workflow. Cambrian treats the event as operating input: it creates a source event, normalizes evidence, opens work, runs the Treuhand review, and blocks the draft behind human review.
+
+Show `Demo focus`, then walk the highlighted blocks.
+
+#### Event Source
 
 Show:
 
-- local synthetic label;
-- no external side effects;
-- six active agents panel;
-- demo guide;
-- room-scoped chat;
-- artifact packs.
+- synthetic source;
+- trigger;
+- source actor;
+- payload preview;
+- expected agents;
+- `sourceEventId`;
+- local adapter boundary.
 
 Say:
 
-> The Situation Room is the operating surface. The key point is not chat. The key point is that agent work becomes typed cards, work orders, approvals, and audit records.
+> The source event is important. We can later replace this synthetic event with a real connector, but the agent journey does not depend on a magical chat prompt. The workflow starts from an operating event.
 
-### 2. Run Demo Conductor Acts
+#### Created This Act
 
-Click `Reset demo state`, then run the numbered `Demo conductor` acts one by one:
+Show:
 
-1. `Inbound email intake`
-2. `Confidential upload attempt`
-3. `Employee onboarding`
-4. `Agent handoff gap`
-5. `Weekly control audit`
-
-Expected result:
-
-- each act opens the relevant room with the `Cards` artifact pack selected;
-- each act first shows an `Event Source` panel naming the synthetic source, trigger, source actor, payload preview, expected agents, `sourceEventId`, and local-only adapter boundary;
-- each act updates `Created this act` with cards, work orders, approvals, and local log counts;
-- the `Trace Chain` panel updates from the active source event, work order, approval, proposal, or follow-through ID;
-- each act shows why a generic chatbot is weaker than the governed Cambrian agent loop;
-- the `Demo readiness` report shows act progress, six active agents, artifact counts, external effects, fixture boundary, and the next business ask;
-- all six active agents show participation;
-- clicking an active-agent row opens its details in a centered pop-up; clicking the same row again collapses it without pushing lower panels down;
-- cards and work orders are created;
-- approval requests remain pending.
+- cards created;
+- one work order;
+- one approval gate;
+- local log count;
+- chatbot contrast;
+- Cambrian contrast.
 
 Say:
 
-> We are not asking a chatbot a question. We are walking through operating events. Each click starts with a visible synthetic event source, then creates governed artifacts: cards, work orders, approval gates, and logs. The contrast line shows what a generic chatbot would miss.
+> This is where the demo becomes more than chat. The agent output is not one answer. It is a packet of work: cards, a work order, an approval, and logs.
 
-Then point to `Trace Chain` and say:
+#### Walk Every Card In This Act
 
-> The important part is the chain. We can start from a source event, work order, approval, proposal, or follow-through record and reconstruct what happened locally. That is the operating proof we need before real integrations.
+Open `Artifact packs` -> `Agent cards`. Walk these cards:
 
-### 3. Inspect Cards, Work Orders, Approvals
+1. `Inbound mailbox message received`
+   - This is the raw operating event.
+   - It proves the workflow can begin from an event, not only from a human prompt.
 
-Open the relevant rooms:
+2. `Context packet created`
+   - `A-INGEST-001` normalized the evidence.
+   - This matters because complex context should become structured transport between agents.
 
-- `Treuhand Case Room`;
-- `Security Room`;
-- `Onboarding Room`;
-- `Weekly Control Room`.
+3. `Security check completed`
+   - `A-SEC-001` inspects the run for warnings.
+   - Generic bots usually rely on the same model to notice its own risks; here the control path is separate.
 
-Use `Artifact packs` rather than scrolling a single timeline:
+4. `Treuhand intake review completed`
+   - `A-TREU-001` prepares the missing-item and draft-follow-up work.
+   - This is the narrow business wedge: document intake and closing prep.
+
+5. `Human review required`
+   - `A-AUTH-001` blocks the client-facing draft.
+   - This is the trust model: agents propose, humans dispose.
+
+#### Trace Chain
+
+Show `Trace Chain`.
+
+Say:
+
+> The important part is the chain. If a reviewer asks "why did this happen?", we can reconstruct it: source event, work order, cards, approval gate, and logs. This is a key difference from generic agents, where the useful work often disappears inside a chat transcript.
+
+#### Approval Gate And Follow-Through
+
+Approve or reject the `review_before_send` gate.
+
+Then show:
+
+- approval status changed;
+- `A-AUTH-001` remains the gate agent;
+- `A-TREU-001` creates the responsible next-step proposal;
+- `Pending next steps` appears;
+- `Select locally` records a consequence;
+- `Selected follow-through` and `Trace Chain` update.
+
+Say:
+
+> Approval is not the end of the loop. The responsible agent proposes the next safe local step, the human selects it, and the consequence is recorded. No email is sent. No production action happens. But the organization now has a reviewable chain.
+
+### Act 2: Confidential Upload Attempt
+
+Click `Confidential upload attempt`.
+
+Say:
+
+> This is the moment a human tries to paste confidential material into an external assistant. A generic chatbot helps only after the data has already been pasted. A control agent can catch the risky action before exposure, classify the risk, and leave an audit trail.
+
+Show `Demo focus`, then walk the highlighted blocks.
+
+#### Walk Every Card In This Act
+
+Open `Artifact packs` -> `Agent cards`. Walk these cards:
+
+1. `External assistant upload attempted`
+   - This is the risky human action represented as a local synthetic event.
+
+2. `Sensitive content detected`
+   - `A-SEC-001` identifies deterministic risk signals.
+   - Point out that this does not require an LLM call in the current prototype.
+
+3. `Upload blocked locally`
+   - The safe action is to use an internal redacted packet.
+   - This is the confidentiality value proposition.
+
+4. `Audit event queued`
+   - `A-CAD-001` can later summarize this in the weekly control review.
+   - The security event becomes operating evidence, not a forgotten warning.
+
+Say:
+
+> This is a good example of why agent journeys should be segregated. The security agent has a narrower job than the workflow agent. That makes it easier to tune for false positives, confidentiality policy, and audit needs.
+
+### Act 3: Employee Onboarding
+
+Click `Employee onboarding`.
+
+Say:
+
+> Now we simulate onboarding a new employee. A generic chatbot can suggest access in a paragraph. Cambrian turns it into a least-privilege plan and blocks the real access claim behind a boss approval gate.
+
+Show `Demo focus`, then walk the highlighted blocks.
+
+#### Walk Every Card In This Act
+
+Open `Artifact packs` -> `Agent cards`. Walk these cards:
+
+1. `New employee onboarding requested`
+   - This is the HR/admin event entering the harness.
+
+2. `Role policy matched`
+   - `A-AUTH-001` maps the role to a local policy.
+
+3. `Access recommendation created`
+   - The recommendation is constrained: read-only case packets and draft creation; no send permission; raw payroll blocked.
+
+4. `Boss approval required`
+   - The access claim stays pending until a human boss approves or rejects.
+
+Say:
+
+> The important point is not that this exact onboarding flow is production-ready. The important point is that access recommendations, approval gates, and local audit records are first-class objects. In a real deployment this can be very simple or much deeper, depending on the client's systems.
+
+### Act 4: Agent Handoff Gap
+
+Click `Agent handoff gap`.
+
+Say:
+
+> This act shows why a meta-harness matters. As agents multiply, the failure mode is not only one bad answer. It is missing context between agents, duplicated assumptions, and unapproved memory. Cambrian makes those gaps visible.
+
+Show `Demo focus`, then walk the highlighted blocks.
+
+#### Walk Every Card In This Act
+
+Open `Artifact packs` -> `Agent cards`. Walk these cards:
+
+1. `Agent handoff created`
+   - `A-INGEST-001` handed period text to `A-TREU-001`.
+
+2. `Handoff context missing`
+   - `A-TREU-001` lacked normalized period context.
+
+3. `Repeated failure pattern detected`
+   - `A-GAP-001` identifies that this could become recurring noise.
+
+4. `Skill update candidate created`
+   - The agent proposes period-normalization skill or memory, but does not approve it.
+
+Say:
+
+> This is better than generic agents because improvement is governed. A chatbot can remember something informally or hallucinate a rule. Here, a skill candidate is proposed, tied to evidence, and gated before becoming operating memory.
+
+### Act 5: Weekly Control Audit
+
+Click `Weekly control audit`.
+
+Say:
+
+> This is the operating-review layer. A generic bot cannot reliably reconstruct what happened last week from scattered prompts. `A-CAD-001` reviews local logs, pending approvals, warnings, blocked work, and token spend status in one cadence.
+
+Show `Demo focus`, then walk the highlighted blocks.
+
+#### Walk Every Card In This Act
+
+Open `Artifact packs` -> `Agent cards`. Walk these cards:
+
+1. `Weekly audit due`
+   - A synthetic weekly cadence event fired locally.
+
+2. `Agent runs summarized`
+   - The cadence agent summarizes agent activity.
+
+3. `Security findings summarized`
+   - The confidential upload warning is now part of the operating review.
+
+4. `Pending approvals summarized`
+   - Open gates remain visible.
+
+5. `Token spend summarized`
+   - In this deterministic prototype, token spend is zero or not applicable.
+
+Say:
+
+> This is where the project starts to look like an operating system for workflow control, not a chatbot. The cadence agent can become a manager's review assistant. Some reviews may always stay human-led. Others can later become automated if the risk is low and the proof is strong.
+
+## Show Agent Cards And Segregated Journeys
+
+Click one active agent card in the active agents block, then close it.
+
+Say:
+
+> The agent card is not marketing decoration. It shows each agent's role, latest work, output count, allowed boundary, and approval requirements. A real deployment can optimize each journey separately: ingestion for recall, security for containment, authorization for least privilege, gap analysis for useful signal, cadence for operating pressure, and Treuhand for reviewer time saved.
+
+Then say:
+
+> This is one of the strongest reasons this is better than generic agents. Generic bots collapse the whole workflow into one conversation. Cambrian separates the workflow into inspectable responsibilities, so we can tune, test, and automate each part differently.
+
+## Show Artifact Packs
+
+Use the pack buttons:
 
 - `Agent cards`;
 - `Next steps`;
@@ -107,7 +341,11 @@ Use `Artifact packs` rather than scrolling a single timeline:
 - `Approvals`;
 - `Local logs`.
 
-Show on expanded cards:
+Say:
+
+> Dense output is packed into reviewable artifact views. This prevents the Situation Room from becoming an endless wall of chat. Chat is useful for human coordination, but the business value lives in structured artifacts.
+
+Call out fields on any card:
 
 - `cardId`;
 - `roomId`;
@@ -116,119 +354,68 @@ Show on expanded cards:
 - `agentId`;
 - `caseId`;
 - `traceId`;
-- `evidenceIds` where relevant;
 - `approvalId` where relevant;
-- `synthetic/local only`.
-- local timestamp.
+- `truth: synthetic_local`;
+- local timestamps.
 
 Say:
 
-> Cards are typed records, not opaque chat messages. The chat is retained per room, and dense output is packed into reviewable artifact views.
+> These identifiers are what make review, audit, and debugging possible. If an agent makes a weak recommendation, we should know which context, rule, card, approval, and trace produced it.
 
-### 4. Approve Or Reject One Gate
+## Show Metrics And Logs
 
-Use one individual `Approve` or `Reject` button, or click `Approve all demo-safe approvals across rooms`.
+Open `Local logs`, then open `Metrics`.
 
 Show:
 
-- approval status updates;
-- `A-AUTH-001` remains the local gate/control agent for Treuhand draft review;
-- `A-TREU-001` creates the responsible next-step proposal for `review_before_send`;
-- related work order status updates;
-- approval card says local approval recorded only;
-- a responsible-agent next-step proposal appears in `Pending next steps`;
-- next-step choices are selected with `Select locally`;
-- selected follow-through shows a local record ID;
-- `Trace Chain` now includes approval, proposal, selected follow-through, and logs;
-- no email, access grant, or memory promotion occurred.
+- room-scoped logs;
+- timestamps;
+- Situation Room messages;
+- cards;
+- work orders;
+- approval decisions;
+- blocked work;
+- pending next steps;
+- selected follow-through;
+- local logs.
 
 Say:
 
-> Approval is not the end of the loop. After the human decides, the responsible agent proposes the next safe local step. The human selects it, and Cambrian records the consequence without sending emails, granting access, or changing production memory.
+> The metrics are not vanity metrics. They answer whether the operating loop is alive: did agents create work, did humans review gates, did follow-through happen, did blocked work remain visible, and can we reconstruct the sequence?
 
-Then click one `Select locally` choice or use `Select first pending next step across rooms locally`.
+Then connect to the pitch:
 
-Say:
+> The business thesis is not "AI features shipped." It is average operating lift: less repetitive admin, faster response, fewer handoff failures, lower review burden, and better documentation.
 
-> This is governed follow-through. The selected consequence is an auditable local record, not an external action.
-
-### 5. Use Agent Tags
-
-In the tag input, try one command:
-
-```text
-@sec check upload
-```
-
-Other supported local commands:
-
-```text
-@ingest process inbound email
-@treu run intake review
-@auth onboard junior accounting assistant
-@gap inspect handoff
-@cad run weekly audit
-```
-
-Say:
-
-> These commands route to deterministic local scenarios. A system chat reply names the created work order, cards, and approval gates so it is obvious that the command produced artifacts.
-
-Also show that the reply names `workOrderId`, `sourceEventId`, card count, and approval count.
-
-### 5a. Show Logs And Metrics
-
-Open the `Local logs` artifact pack, then open `Metrics`.
-
-Show:
-
-- logs are room-scoped;
-- every log has `logId`, `roomId`, artifact ID, and timestamp;
-- Metrics shows Situation Room messages, cards, work orders, reviewed gates, pending next steps, selected follow-through, review actions, blocked work, and logs.
-
-Say:
-
-> Logs are local only. They live in browser localStorage under `agentops-core-store-v1`, in `situationEventLog` plus the room message, card, work-order, and approval arrays.
-
-### 6. Open Validation
+## Show Validation Boundary
 
 Click `Validation`.
+
+Say:
+
+> The Situation Room shows the operating loop. Validation is where we test whether it creates real reviewer value. Fixture data proves workflow shape only. It does not prove customer value.
 
 Show:
 
 - sample imports;
 - fixture labels;
 - reviewer capture;
+- failure tags;
 - before/after operating memo;
-- validation package export guard.
+- export privacy gate.
 
 Say:
 
-> The Situation Room shows the operating loop. Validation is where we test whether the loop creates real reviewer value.
+> The next proof is 3-5 anonymized Treuhand cases, then 10-20 if the first cases are useful. We need baseline manual time, checklist trust, reviewer rating, failure tags, and would-use-again evidence. If those do not hold, the broader thesis should stop or narrow.
 
-### 7. Show Metrics Separation
+## One-Week Follow-Up
 
-Click `Metrics`.
+This is part two of the demo. Keep it short. Show only one week-two card.
 
-Show:
+At the end of part one:
 
-- fixture seed records separate from human captures;
-- real reviewer cases at zero until anonymized reviewer cases exist;
-- traceability coverage language.
-
-Say:
-
-> Fixture data proves workflow shape only. It does not count as operating proof.
-
-### 8. Close With The Business Ask
-
-Say:
-
-> The next ask is 3-5 anonymized Treuhand cases. Not production access, not raw client files, not Gmail or Slack permissions. Just enough anonymized packets to test reviewer trust, time saved, and failure modes.
-
-## Demo Part 2: One Week Later
-
-At the end of part 1, click `Save demo snapshot` and keep the generated JSON.
+1. Click `Save demo snapshot`.
+2. Keep the generated JSON.
 
 One week later:
 
@@ -237,47 +424,89 @@ One week later:
 3. Click `Load snapshot`.
 4. Click `Advance one week`.
 5. Open `Weekly Control Room`.
-6. Inspect `Agent cards` and `Local logs`.
-
-Expected result:
-
-- prior room messages, source events, cards, work orders, approvals, next-step selections, follow-through records, validation records, and local logs are restored;
-- `A-CAD-001` creates a week-two continuity work order;
-- the week-two cards summarize prior source-event count, prior log count, prior local follow-through decisions, unresolved approvals, blocked work, and next business ask;
-- no database, backend, or external connector is used.
+6. Open `Agent cards`.
+7. Show only `Week 2 prior log review`.
 
 Say:
 
-> This proves demo continuity without production infrastructure. If we need multi-user audit guarantees later, the snapshot format becomes the seed for a real append-only ledger or database. For now, it keeps the proof portable and honest.
+> This is demo continuity without production infrastructure. One week later, `A-CAD-001` can review prior source events, local logs, approvals, follow-through decisions, and work orders from the imported local snapshot.
 
-## Pass Condition For The Demo
+Walk the single card:
 
-A viewer should understand:
+`Week 2 prior log review`
 
-- there is one Treuhand workflow agent plus five active control agents;
-- the Situation Room is the main operating surface;
-- each active agent visibly did useful work;
-- agent work became typed cards and governed work orders;
-- the Trace Chain reconstructs source event -> work order -> cards -> approval -> proposal -> follow-through -> logs;
-- the Demo readiness report separates demo readiness from business proof;
-- chat is retained per thematic room;
-- dense state is packed into artifact views;
-- draft sending, access grants, and memory updates require human approval;
-- human approval/rejection creates responsible-agent next-step proposals;
+- It summarizes how many source events existed.
+- It summarizes prior local logs.
+- It counts approval gates.
+- It counts local follow-through decisions.
+- It references existing local work orders.
+
+Say:
+
+> This is enough for part two. We do not need to replay every artifact again. The point is that local work is portable and reviewable. If a client later needs multi-user audit guarantees, this snapshot format can become the seed for a real append-only ledger or database. For now, it keeps the demo lean and honest.
+
+## Why This Beats Generic Agents
+
+Use these points repeatedly during the demo:
+
+1. **Complex context**
+   Generic chatbots require humans to gather and explain context. Cambrian turns operating events into context packets, work orders, cards, approvals, and traces.
+
+2. **Segregated agent journeys**
+   Ingestion, security, authorization, gap analysis, cadence, and Treuhand review can be tested and optimized separately. This reduces hidden coupling.
+
+3. **Human gates**
+   Client-facing drafts, access grants, and memory updates stop at approval. This preserves trust in sensitive workflows.
+
+4. **Auditability**
+   Every important artifact has IDs, timestamps, source-event links, trace IDs, and local logs. The chain can be reconstructed later.
+
+5. **Reliability before autonomy**
+   The prototype is deterministic and local. That is less exciting than a generic autonomous agent, but it is easier to test, trust, and sell into sensitive SMEs.
+
+6. **Path to automation**
+   Once a step is proven low-risk, repetitive, and valuable, it can move toward automation. The system does not need all workflows to be autonomous on day one.
+
+7. **Business measurement**
+   The goal is not a clever demo. The goal is reviewer trust, time saved, lower rework, faster response, and better documentation.
+
+## Closing Talk Track
+
+Say:
+
+> The practical ask is not production access. It is not real mailbox integration. It is not raw client data. The next ask is 3-5 anonymized Treuhand cases so we can test reviewer trust, time saved, failure modes, and evidence traceability.
+>
+> If the proof is real, we can expand to 10-20 cases and then decide what integration depth is justified. Some clients may only need a simple controlled workflow assistant. Others may need a richer operating harness with private connectors and audit infrastructure. We should earn that complexity with evidence.
+
+Then end with:
+
+> The core thesis is wedge first, platform later. Prove one painful workflow, measure operating lift, and only then discuss broader Swiss SME operating transformation.
+
+## Pass Condition
+
+A viewer should leave understanding:
+
+- Project Cambrian is a controlled operating harness for trusted workflows, not a generic chatbot;
+- the current proof is Treuhand/accounting document intake and control workflows;
+- six active agents are visible and role-separated;
+- the Situation Room is a meta-harness for rooms, cards, work orders, approvals, traces, logs, and metrics;
+- every demo act creates visible local artifacts;
+- the five act card sets can be inspected one by one;
+- sensitive actions require human approval;
+- human approval creates responsible-agent next-step proposals;
 - selected next steps create local follow-through records only;
-- review actions update local Situation metrics;
-- logs and timestamps make the local sequence reviewable;
-- demo state can be carried to part 2 with a versioned local snapshot;
-- scenarios are synthetic/local;
-- validation output is separate from fixture proof;
+- trace chains reconstruct source event to work order to cards to approval to follow-through to logs;
+- validation separates fixture proof from real reviewer proof;
+- one-week continuity works through a local snapshot and one `A-CAD-001` follow-up card;
 - the next business ask is 3-5 anonymized real Treuhand cases.
 
 ## Stop Conditions
 
-Stop the demo honestly if the audience asks for:
+Stop or reframe honestly if the audience asks for proof of:
 
 - production security guarantees;
-- real Gmail, Slack, Drive, browser, IAM, telemetry, or database integration;
+- real Gmail, Slack, Drive, browser, IAM, LLM, telemetry, or database integration;
 - real customer data ingestion;
-- autonomous accounting decisions;
-- evidence that synthetic fixtures already prove customer value.
+- autonomous accounting, legal, tax, investment, payment, or access decisions;
+- synthetic fixtures as proof of customer value;
+- acquisition or fund-formation readiness before operating proof exists.

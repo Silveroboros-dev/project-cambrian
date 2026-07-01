@@ -81,7 +81,14 @@ export const SITUATION_ROOM_SCENARIOS = [
     expectedAgentIds: ["A-INGEST-001", "A-SEC-001", "A-TREU-001", "A-AUTH-001"],
     adapterBoundary: "Simulated/local inbox event only; no external connector polling or file sync.",
     chatbotContrast: "Waits for a human to paste the email and explain context.",
-    cambrianContrast: "Notices a synthetic mailbox event, normalizes evidence, opens work, and blocks the client draft behind review."
+    cambrianContrast: "Notices a synthetic mailbox event, normalizes evidence, opens work, and blocks the client draft behind review.",
+    demoFocus: {
+      happened: "Inbound email became governed local work.",
+      look: "Event Source -> Created this act -> Trace Chain -> Pending approvals.",
+      proof: "The client-facing draft is blocked before use; A-AUTH-001 gates review and A-TREU-001 handles follow-through.",
+      next: "Approve or reject the review_before_send gate.",
+      targets: ["event_source", "created_act", "trace_chain", "approvals"]
+    }
   },
   {
     id: "confidential_upload_attempt",
@@ -97,7 +104,14 @@ export const SITUATION_ROOM_SCENARIOS = [
     expectedAgentIds: ["A-SEC-001", "A-CAD-001"],
     adapterBoundary: "Simulated/local upload box only; no endpoint monitoring or external model call.",
     chatbotContrast: "Answers only after confidential text has already been pasted.",
-    cambrianContrast: "Stops the risky upload locally, names deterministic risk signals, and leaves an audit trail."
+    cambrianContrast: "Stops the risky upload locally, names deterministic risk signals, and leaves an audit trail.",
+    demoFocus: {
+      happened: "Confidential upload was stopped as a local control event.",
+      look: "Event Source -> Created this act -> Agent cards -> Trace Chain.",
+      proof: "The risky action is blocked locally before external exposure; the card names deterministic risk signals and no external action runs.",
+      next: "Open Agent cards or Local logs to inspect the blocked evidence trail.",
+      targets: ["event_source", "created_act", "trace_chain", "artifact_packs"]
+    }
   },
   {
     id: "employee_onboarding",
@@ -113,7 +127,14 @@ export const SITUATION_ROOM_SCENARIOS = [
     expectedAgentIds: ["A-AUTH-001", "A-SEC-001", "A-CAD-001"],
     adapterBoundary: "Simulated/local HR request only; no production directory or collaboration-suite changes.",
     chatbotContrast: "Suggests generic access in a chat reply.",
-    cambrianContrast: "Maps the role to least-privilege access and requires boss approval before any access claim."
+    cambrianContrast: "Maps the role to least-privilege access and requires boss approval before any access claim.",
+    demoFocus: {
+      happened: "Onboarding request became a least-privilege access plan.",
+      look: "Event Source -> Created this act -> Pending approvals -> Trace Chain.",
+      proof: "A-AUTH-001 proposes local access planning only; a boss approval gate blocks any access claim.",
+      next: "Approve or reject the boss access gate, then inspect the next-step proposal.",
+      targets: ["event_source", "created_act", "approvals", "trace_chain"]
+    }
   },
   {
     id: "agent_handoff_gap",
@@ -129,7 +150,14 @@ export const SITUATION_ROOM_SCENARIOS = [
     expectedAgentIds: ["A-GAP-001", "A-AUTH-001"],
     adapterBoundary: "Simulated/local agent handoff only; no persistent knowledge write without approval.",
     chatbotContrast: "Misses the operating failure unless someone asks about it.",
-    cambrianContrast: "Watches agent handoff artifacts and proposes a skill update without approving durable memory."
+    cambrianContrast: "Watches agent handoff artifacts and proposes a skill update without approving durable memory.",
+    demoFocus: {
+      happened: "Agent handoff gap became a proposed skill candidate.",
+      look: "Event Source -> Created this act -> Pending approvals -> Trace Chain.",
+      proof: "A-GAP-001 can propose a reusable lesson, but approval is required before anything becomes operating memory.",
+      next: "Review the memory-candidate approval gate or keep it pending as proof of control.",
+      targets: ["event_source", "created_act", "approvals", "trace_chain"]
+    }
   },
   {
     id: "weekly_control_audit",
@@ -145,7 +173,14 @@ export const SITUATION_ROOM_SCENARIOS = [
     expectedAgentIds: ["A-CAD-001"],
     adapterBoundary: "Simulated/local scheduler only; no external cadence service, operations backend, or token billing API.",
     chatbotContrast: "Cannot reliably reconstruct what happened last week from scattered prompts.",
-    cambrianContrast: "Reviews local logs, approvals, warnings, and tool usage in one auditable cadence."
+    cambrianContrast: "Reviews local logs, approvals, warnings, and tool usage in one auditable cadence.",
+    demoFocus: {
+      happened: "Weekly control audit summarized the local operating trail.",
+      look: "Created this act -> Local logs -> Demo readiness -> Trace Chain.",
+      proof: "A-CAD-001 reviews local logs and unresolved work without requiring an operations backend or production connector.",
+      next: "Show Demo readiness, then move to Validation or the paid-audit ask.",
+      targets: ["created_act", "artifact_packs", "readiness", "trace_chain"]
+    }
   }
 ];
 
@@ -509,6 +544,7 @@ export function runSituationDemoAct(store, scenarioId, createdAt = new Date().to
     sourceEvent: result.sourceEvent || null,
     chatbotContrast: scenario.chatbotContrast,
     cambrianContrast: scenario.cambrianContrast,
+    demoFocus: scenario.demoFocus,
     summary: `${scenario.label} created ${result.cards.length} card(s), ${result.workOrder ? 1 : 0} work order(s), ${result.approvalRequests.length} approval gate(s), and ${logDelta} local log record(s).`
   };
   store.situationDemoConductor = {

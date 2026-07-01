@@ -54,6 +54,9 @@ It is not Slack, Gmail, browser monitoring, IAM, production telemetry, or autono
 14. **Demo Readiness Report**
     Summarizes whether the five conductor acts have run, whether the six active agents are shown, artifact counts, reviewed gates, pending next steps, selected follow-through records, external-effect status, fixture/proof boundary, and the next business ask.
 
+15. **Demo Focus Pointers**
+    Shows a compact `Demo focus` strip for the current act or review step. It must explain what just happened, where to look, why it matters, and the next click, while marking the relevant local UI blocks without adding a tour library, animation dependency, or new agent behavior.
+
 ## Identity Keys
 
 Every Situation Room artifact must carry explicit identity:
@@ -283,3 +286,7 @@ The Situation Room must render a local demo-readiness report with conductor-act 
 ### AC-SR-39: Trace Chain Has No External Effects
 
 The Trace Chain panel must clearly state `local synthetic trace only; no external action executed.` Trace reconstruction and selected follow-through records must report `externalEffect: none`; missing trace links must not be treated as external execution or production proof.
+
+### AC-SR-40: Demo Focus Pointers
+
+The Situation Room must render a `Demo focus` strip bound to the current local demo act or review action. It must show `What just happened`, `Where to look`, `Why it matters`, and `Next click`. The relevant blocks, such as Event Source, Created this act, Trace Chain, Pending approvals, Pending next steps, Selected follow-through, Demo readiness, and Artifact packs, must receive a restrained visual marker. The markers are presentational only and must not mutate state, auto-run steps, add dependencies, or imply external execution.

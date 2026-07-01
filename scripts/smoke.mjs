@@ -18,15 +18,19 @@ import {
   summarizeSituationAgentParticipation
 } from "../src/situationRoom.js";
 import { FAILURE_TAGS, runValidationSample } from "../src/validation.js";
+import { buildWorkflowKernelReadinessReport } from "../src/workflowKernelReport.js";
 
 await Promise.all([
   access("index.html"),
   access("src/app.js"),
   access("src/styles.css"),
-  access("README.md")
+  access("README.md"),
+  access("docs/future-workflow-kernel-architecture.md")
 ]);
 
 const html = await readFile("index.html", "utf8");
+const appSource = await readFile("src/app.js", "utf8");
+const styleSource = await readFile("src/styles.css", "utf8");
 assert.match(html, /AgentOps Core/);
 assert.match(html, /src\/app.js/);
 assert.match(html, /Context/);
@@ -34,6 +38,11 @@ assert.match(html, /Controls/);
 assert.match(html, /Validation/);
 assert.match(html, /Situation/);
 assert.match(html, /situation-view/);
+assert.match(appSource, /Demo focus/);
+assert.match(appSource, /What just happened/);
+assert.match(appSource, /demo-focus-target/);
+assert.match(styleSource, /demo-focus-strip/);
+assert.match(styleSource, /demo-focus-target/);
 
 const store = createInitialStore();
 const output = runTreuhandAgent(store.cases[0]);
@@ -101,9 +110,14 @@ assert.ok(traceChain.nextStepProposals.some((proposal) => proposal.id === nextSt
 assert.ok(traceChain.followThroughs.some((record) => record.id === selectedNextStep.followThrough.id));
 assert.equal(traceChain.externalEffectSummary, "none");
 const readiness = buildSituationDemoReadinessReport(store);
+const kernelReadiness = buildWorkflowKernelReadinessReport(store);
 assert.equal(readiness.completedActCount, 5);
 assert.equal(readiness.activeAgentsShown, 6);
 assert.equal(readiness.realExternalEffects, "none");
+assert.equal(kernelReadiness.noExternalExecution, true);
+assert.equal(kernelReadiness.primitives.sourceEvents.representedNow, true);
+assert.equal(kernelReadiness.primitives.traceChains.representedNow, true);
+assert.equal(kernelReadiness.currentLocalArchitectureEnoughForNextProof, true);
 assert.equal(routedCommand.routedScenarioId, "confidential_upload_attempt");
 assert.equal(routedCommand.reused, true);
 assert.equal(store.situationDemoConductor.lastAct.actId, "confidential_upload_attempt");

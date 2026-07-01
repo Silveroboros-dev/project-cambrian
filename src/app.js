@@ -224,6 +224,8 @@ function renderSituationRoom() {
   const situationMetrics = summarizeSituationMetrics(store);
   const activeTraceChain = buildSituationTraceChain(store, store.situationLastAction || conductor.lastAct || {});
   const readinessReport = buildSituationDemoReadinessReport(store);
+  const demoFocus = deriveDemoFocus({ conductor, lastAction: store.situationLastAction, traceChain: activeTraceChain });
+  const focusTargets = new Set(demoFocus.targets || []);
   const activePack = store.activeSituationPack || "cards";
   const chatMessages = [...roomMessages].sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
 
@@ -265,7 +267,7 @@ function renderSituationRoom() {
           <li>Ask for 3-5 anonymized Treuhand cases.</li>
         </ol>
         ${renderDemoConductorProgress(conductor)}
-        ${renderSituationDemoReadinessReport(readinessReport)}
+        ${renderSituationDemoReadinessReport(readinessReport, focusTargets)}
       </section>
 
       <section class="subpanel agent-status-panel">
@@ -291,7 +293,7 @@ function renderSituationRoom() {
         </div>
       </aside>
 
-      <section class="subpanel situation-main">
+      <section class="subpanel situation-main ${focusTargets.has("demo_conductor") ? "demo-focus-target" : ""}">
         <div class="subpanel-heading">
           <h3>Demo conductor</h3>
           <span>${escapeHtml(conductor.completedActIds?.length || 0)}/${SITUATION_ROOM_SCENARIOS.length} acts complete</span>
@@ -299,8 +301,9 @@ function renderSituationRoom() {
         <div class="demo-act-grid">
           ${SITUATION_ROOM_SCENARIOS.map((scenario, index) => renderScenarioButton(scenario, index, conductor)).join("")}
         </div>
-        ${renderDemoActResult(conductor.lastAct)}
-        ${renderSituationTraceChain(activeTraceChain)}
+        ${renderDemoFocus(demoFocus)}
+        ${renderDemoActResult(conductor.lastAct, focusTargets)}
+        ${renderSituationTraceChain(activeTraceChain, focusTargets)}
         <form id="situation-message-form" class="validation-form situation-input">
           <label>
             Manual agent tag (optional)
@@ -324,7 +327,7 @@ function renderSituationRoom() {
           </div>
         </div>
 
-        <div class="artifact-pack-panel">
+        <div class="artifact-pack-panel ${focusTargets.has("artifact_packs") ? "demo-focus-target" : ""}">
           <div class="subpanel-heading compact-heading">
             <h3>Artifact packs</h3>
             <span>${escapeHtml(activePack)}</span>
@@ -347,7 +350,7 @@ function renderSituationRoom() {
       </section>
 
       <aside class="subpanel situation-side">
-        <div class="subpanel-heading">
+        <div class="subpanel-heading ${focusTargets.has("next_steps") ? "demo-focus-heading" : ""}">
           <h3>Pending next steps</h3>
           <span>${roomNextSteps.filter((card) => card.status === "pending").length}</span>
         </div>
@@ -359,14 +362,14 @@ function renderSituationRoom() {
         <div class="artifact-list compact-list">
           ${roomNextSteps.length === 0 ? emptyState("No responsible-agent next-step proposals in this room.") : roomNextSteps.map(renderNextStepProposal).join("")}
         </div>
-        <div class="subpanel-heading stacked-heading">
+        <div class="subpanel-heading stacked-heading ${focusTargets.has("follow_through") ? "demo-focus-heading" : ""}">
           <h3>Selected follow-through</h3>
           <span>${roomFollowThroughs.length}</span>
         </div>
         <div class="artifact-list compact-list">
           ${roomFollowThroughs.length === 0 ? emptyState("No local follow-through recorded in this room.") : roomFollowThroughs.map(renderFollowThroughRecord).join("")}
         </div>
-        <div class="subpanel-heading stacked-heading">
+        <div class="subpanel-heading stacked-heading ${focusTargets.has("approvals") ? "demo-focus-heading" : ""}">
           <h3>Pending approvals</h3>
           <span>${roomApprovals.length}</span>
         </div>
@@ -1313,7 +1316,81 @@ function renderDemoConductorProgress(conductor = {}) {
   `;
 }
 
-function renderDemoActResult(act) {
+function deriveDemoFocus({ conductor = {}, lastAction = null, traceChain = null }) {
+  if (lastAction?.status === "approval_resolved") {
+    return {
+      happened: "Human review resolved the approval gate.",
+      look: "Pending next steps -> Trace Chain -> approval card.",
+      proof: "The gate stayed local-only, and the responsible agent proposed follow-through instead of executing anything.",
+      next: "Select one next-step choice locally.",
+      targets: ["approvals", "next_steps", "trace_chain"]
+    };
+  }
+  if (lastAction?.status === "local_follow_through_recorded") {
+    return {
+      happened: "A human selected a local consequence.",
+      look: "Selected follow-through -> Trace Chain -> Demo readiness.",
+      proof: "The consequence is now auditable as a local record; no external action executed.",
+      next: "Run the remaining conductor acts or open Validation for proof packaging.",
+      targets: ["follow_through", "trace_chain", "readiness"]
+    };
+  }
+  if (lastAction?.status === "manual_tag_routed_demo_act" || lastAction?.status === "manual_tag_reused_demo_act") {
+    return {
+      happened: "Manual tag routed to a deterministic demo scenario.",
+      look: "Room chat -> Created this act -> Trace Chain -> Artifact packs.",
+      proof: "The command names the source event, work order, cards, and approvals without creating duplicates for completed acts.",
+      next: "Inspect the highlighted artifacts or continue the numbered acts.",
+      targets: ["created_act", "trace_chain", "artifact_packs"]
+    };
+  }
+  const actFocus = conductor.lastAct?.demoFocus;
+  if (actFocus) return actFocus;
+  if (traceChain?.sourceEvent) {
+    return {
+      happened: "A local trace is selected.",
+      look: "Trace Chain -> Artifact packs.",
+      proof: "The current chain is reconstructed from explicit local IDs.",
+      next: "Run a numbered act or resolve a pending approval.",
+      targets: ["trace_chain", "artifact_packs"]
+    };
+  }
+  return {
+    happened: "No demo act has run yet.",
+    look: "Demo conductor.",
+    proof: "Reset only prepares a clean local state; the numbered acts create visible proof.",
+    next: "Click Inbound email intake.",
+    targets: ["demo_conductor"]
+  };
+}
+
+function renderDemoFocus(focus) {
+  return `
+    <div class="demo-focus-strip">
+      <div class="subpanel-heading compact-heading">
+        <h3>Demo focus</h3>
+        <span>guided proof path</span>
+      </div>
+      <div class="demo-focus-grid">
+        ${demoFocusItem("What just happened", focus.happened)}
+        ${demoFocusItem("Where to look", focus.look)}
+        ${demoFocusItem("Why it matters", focus.proof)}
+        ${demoFocusItem("Next click", focus.next)}
+      </div>
+    </div>
+  `;
+}
+
+function demoFocusItem(label, value) {
+  return `
+    <div>
+      <strong>${escapeHtml(label)}</strong>
+      <span>${escapeHtml(value)}</span>
+    </div>
+  `;
+}
+
+function renderDemoActResult(act, focusTargets = new Set()) {
   if (!act) {
     return `
       <div class="demo-act-result">
@@ -1323,8 +1400,8 @@ function renderDemoActResult(act) {
     `;
   }
   return `
-    <div class="demo-act-result is-populated">
-      ${renderSourceEventPanel(act.sourceEvent)}
+    <div class="demo-act-result is-populated ${focusTargets.has("created_act") ? "demo-focus-target" : ""}">
+      ${renderSourceEventPanel(act.sourceEvent, focusTargets)}
       <div class="subpanel-heading compact-heading">
         <h3>Created this act</h3>
         <span>${escapeHtml(act.primaryAgentId)}</span>
@@ -1354,7 +1431,7 @@ function renderDemoActResult(act) {
   `;
 }
 
-function renderSourceEventPanel(sourceEvent) {
+function renderSourceEventPanel(sourceEvent, focusTargets = new Set()) {
   if (!sourceEvent) {
     return `
       <div class="event-source-panel">
@@ -1364,7 +1441,7 @@ function renderSourceEventPanel(sourceEvent) {
     `;
   }
   return `
-    <div class="event-source-panel">
+    <div class="event-source-panel ${focusTargets.has("event_source") ? "demo-focus-target" : ""}">
       <div class="subpanel-heading compact-heading">
         <h3>Event Source</h3>
         <span>${escapeHtml(sourceEvent.sourceLabel)}</span>
@@ -1398,7 +1475,7 @@ function renderSourceEventPanel(sourceEvent) {
   `;
 }
 
-function renderSituationTraceChain(chain) {
+function renderSituationTraceChain(chain, focusTargets = new Set()) {
   const missing = new Map((chain.missingLinks || []).map((item) => [item.link, item.label]));
   const sourceEventId = chain.sourceEvent?.id || chain.selector?.sourceEventId || "";
   const workOrderId = chain.workOrder?.id || chain.selector?.workOrderId || "";
@@ -1415,7 +1492,7 @@ function renderSituationTraceChain(chain) {
     "";
 
   return `
-    <div class="trace-chain-panel">
+    <div class="trace-chain-panel ${focusTargets.has("trace_chain") ? "demo-focus-target" : ""}">
       <div class="subpanel-heading compact-heading">
         <h3>Trace Chain</h3>
         <span>${escapeHtml(chain.externalEffectSummary || "none")}</span>
@@ -1470,9 +1547,9 @@ function renderTraceChainRow(label, value, missingLabel, metaItems) {
   `;
 }
 
-function renderSituationDemoReadinessReport(report) {
+function renderSituationDemoReadinessReport(report, focusTargets = new Set()) {
   return `
-    <div class="demo-readiness-report">
+    <div class="demo-readiness-report ${focusTargets.has("readiness") ? "demo-focus-target" : ""}">
       <div class="subpanel-heading compact-heading">
         <h3>Demo readiness</h3>
         <span>${escapeHtml(report.completedActCount)}/${escapeHtml(report.totalActCount)} acts</span>

@@ -60,6 +60,7 @@ The prototype proves the operating loop, not production readiness:
 - [Phase 2 validation contract](docs/phase2-validation-contract.md): acceptance criteria and identity/mutation rules for the Treuhand validation kit.
 - [Situation Room contract](docs/situation-room-contract.md): local agent-tag, work-order, scenario-card, approval, and audit rules for the six-agent control loop.
 - [Situation Room demo script](docs/demo-script-situation-room.md): opening stakeholder click path for the local six-agent Situation Room demo.
+- [Future workflow kernel architecture](docs/future-workflow-kernel-architecture.md): architecture-readiness note mapping current local artifacts to a simple future workflow kernel.
 - [Phase 2 case import format](docs/phase2-case-import-format.md): versioned anonymized case format for local validation.
 - [Phase 2 demo script](docs/demo-script-phase2.md): stakeholder click path, talk track, expected questions, and next-step proposal.
 - [Phase 2 anonymized data request](docs/phase2-anonymized-data-request.md): one-page request for 3-5 friendly reviewer cases.
