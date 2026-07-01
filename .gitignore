@@ -4,6 +4,8 @@ coverage/
 .env
 .env.*
 *.log
+*.zip
+CLAUDE.md
 dist/
 build/
 .cache/

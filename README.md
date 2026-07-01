@@ -105,9 +105,13 @@ Click `Reset demo state`, then run the numbered `Demo conductor` acts one by one
 4. agent handoff gap;
 5. weekly control audit.
 
-Each act should first show an `Event Source` panel with the synthetic source, trigger, source actor, payload preview, expected agents, `sourceEventId`, and local-only adapter boundary. Then the `Created this act` panel shows new card, work-order, approval, and local-log counts, plus a contrast between a generic chatbot and the governed Cambrian agent loop. The demo should show six active agents, typed cards, work orders, pending approvals, no external side effects, and `synthetic/local` truth labels.
+Each act should first show an `Event Source` panel with the synthetic source, trigger, source actor, payload preview, expected agents, `sourceEventId`, and local-only adapter boundary. Then the `Created this act` panel shows new card, work-order, approval, and local-log counts, plus a contrast between a generic chatbot and the governed Cambrian agent loop. The adjacent `Trace Chain` panel reconstructs the active chain from source event to work order, cards, approval gate, next-step proposal, selected local follow-through, and logs. The demo should show six active agents, typed cards, work orders, pending approvals, no external side effects, and `synthetic/local` truth labels.
 
 After a human approves or rejects a gate, the responsible agent creates a pending next-step proposal. The human selects a consequence with `Select locally`, and the app records a local follow-through artifact. This does not send email, grant access, promote memory, call external APIs, or execute production actions.
+
+The approval gate agent and responsible follow-through agent are distinct where needed. For the Treuhand draft review, `A-AUTH-001` remains the local approval/control gate while `A-TREU-001` proposes the post-review follow-through. Onboarding access follow-through stays with `A-AUTH-001`; operating-memory candidate follow-through stays with `A-GAP-001`.
+
+The `Demo readiness` report in the Situation guide summarizes the five conductor acts, six active agents, source events, work orders, approval gates, reviewed gates, pending next steps, selected follow-through records, real external effects, fixture/proof boundary, and the next business ask: 3-5 anonymized real Treuhand cases.
 
 Each thematic room has its own retained local chat. Agent commands append a human message, create local artifacts when supported, and add a system reply naming the created work order/cards/approval gates. Dense output is packed into switchable `Agent cards`, `Next steps`, `Events`, `Work orders`, `Approvals`, and `Local logs` views so the demo does not require scanning one giant timeline.
 

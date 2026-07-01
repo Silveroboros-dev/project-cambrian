@@ -48,7 +48,7 @@ export const ACTIVE_SITUATION_AGENTS = [
     role: "Permissions and least-privilege control agent",
     demoCommand: "@auth onboard junior accounting assistant",
     humanApprovalRequired: true,
-    approvalBoundary: "Access recommendations require boss approval; no real IAM changes."
+    approvalBoundary: "Access recommendations require boss approval; no production permission changes."
   },
   {
     agentId: "A-GAP-001",
@@ -62,7 +62,7 @@ export const ACTIVE_SITUATION_AGENTS = [
     role: "Cadence, audit, and operating-review agent",
     demoCommand: "@cad run weekly audit",
     humanApprovalRequired: false,
-    approvalBoundary: "May summarize local logs only; no telemetry backend."
+    approvalBoundary: "May summarize local logs only; no external metrics backend."
   }
 ];
 
@@ -73,13 +73,13 @@ export const SITUATION_ROOM_SCENARIOS = [
     roomId: "room_case_march_2026",
     primaryAgentId: "A-INGEST-001",
     sourceKind: "synthetic_workspace_inbox",
-    sourceLabel: "Synthetic Workspace/Gmail-style inbox",
+    sourceLabel: "Synthetic workspace mailbox",
     triggerType: "mailbox_message_received",
     sourceActor: "client_contact",
     payloadTitle: "March 2026 Treuhand packet",
     payloadPreview: "March 2026 Treuhand packet; bank statement and sales export attached; MWST-Abrechnung missing.",
     expectedAgentIds: ["A-INGEST-001", "A-SEC-001", "A-TREU-001", "A-AUTH-001"],
-    adapterBoundary: "Simulated/local inbox event only; no real Gmail, Drive, or mailbox polling.",
+    adapterBoundary: "Simulated/local inbox event only; no external connector polling or file sync.",
     chatbotContrast: "Waits for a human to paste the email and explain context.",
     cambrianContrast: "Notices a synthetic mailbox event, normalizes evidence, opens work, and blocks the client draft behind review."
   },
@@ -89,13 +89,13 @@ export const SITUATION_ROOM_SCENARIOS = [
     roomId: "room_security",
     primaryAgentId: "A-SEC-001",
     sourceKind: "simulated_external_llm_box",
-    sourceLabel: "Simulated ChatGPT/Claude upload box",
+    sourceLabel: "Simulated external assistant upload box",
     triggerType: "external_llm_upload_attempt",
     sourceActor: "human_employee",
     payloadTitle: "External LLM upload attempt",
-    payloadPreview: "Payroll, bank, and client-sensitive text aimed at an external LLM.",
+    payloadPreview: "Payroll, bank, and client-sensitive text aimed at an external assistant.",
     expectedAgentIds: ["A-SEC-001", "A-CAD-001"],
-    adapterBoundary: "Simulated/local upload box only; no browser monitoring, no DLP integration, no LLM call.",
+    adapterBoundary: "Simulated/local upload box only; no endpoint monitoring or external model call.",
     chatbotContrast: "Answers only after confidential text has already been pasted.",
     cambrianContrast: "Stops the risky upload locally, names deterministic risk signals, and leaves an audit trail."
   },
@@ -111,7 +111,7 @@ export const SITUATION_ROOM_SCENARIOS = [
     payloadTitle: "Junior assistant access request",
     payloadPreview: "Junior accounting assistant needs Treuhand intake access.",
     expectedAgentIds: ["A-AUTH-001", "A-SEC-001", "A-CAD-001"],
-    adapterBoundary: "Simulated/local HR request only; no real IAM, HRIS, Slack, or Drive changes.",
+    adapterBoundary: "Simulated/local HR request only; no production directory or collaboration-suite changes.",
     chatbotContrast: "Suggests generic access in a chat reply.",
     cambrianContrast: "Maps the role to least-privilege access and requires boss approval before any access claim."
   },
@@ -127,7 +127,7 @@ export const SITUATION_ROOM_SCENARIOS = [
     payloadTitle: "Period normalization handoff",
     payloadPreview: "Period wording passed as März/Maerz/March while A-TREU expects normalized 2026-03.",
     expectedAgentIds: ["A-GAP-001", "A-AUTH-001"],
-    adapterBoundary: "Simulated/local agent handoff only; no durable memory write without approval.",
+    adapterBoundary: "Simulated/local agent handoff only; no persistent knowledge write without approval.",
     chatbotContrast: "Misses the operating failure unless someone asks about it.",
     cambrianContrast: "Watches agent handoff artifacts and proposes a skill update without approving durable memory."
   },
@@ -143,7 +143,7 @@ export const SITUATION_ROOM_SCENARIOS = [
     payloadTitle: "Weekly local operating review",
     payloadPreview: "Summarize local runs, approvals, warnings, blocked work, tool usage, and token spend.",
     expectedAgentIds: ["A-CAD-001"],
-    adapterBoundary: "Simulated/local scheduler only; no telemetry backend, calendar integration, or token billing API.",
+    adapterBoundary: "Simulated/local scheduler only; no external cadence service, operations backend, or token billing API.",
     chatbotContrast: "Cannot reliably reconstruct what happened last week from scattered prompts.",
     cambrianContrast: "Reviews local logs, approvals, warnings, and tool usage in one auditable cadence."
   }
@@ -343,9 +343,12 @@ export function postSituationMessage(store, { roomId, text, actorId = "human_rev
       ]);
     }
     const reusedCopy = scenarioResult.reused ? "Reused existing completed act; no duplicate artifacts created. " : "";
+    const routedWorkOrderId = scenarioResult.actRecord.createdWorkOrderIds[0] || null;
+    const routedSourceEventId = scenarioResult.actRecord.sourceEventId || null;
     const systemMessage = appendSystemRoomMessage(store, {
       roomId: scenarioResult.actRecord.roomId,
-      text: `${reusedCopy}${parsed.agentId} routed "${text}" to ${scenarioResult.actRecord.label}: ${scenarioResult.actRecord.summary}`,
+      text: `${reusedCopy}${parsed.agentId} routed "${text}" to ${scenarioResult.actRecord.label}: workOrderId ${routedWorkOrderId || "none"}, sourceEventId ${routedSourceEventId || "none"}, cards ${scenarioResult.actRecord.createdCardIds.length}, approvals ${scenarioResult.actRecord.createdApprovalIds.length}.`,
+      sourceEventId: routedSourceEventId,
       createdAt: offsetIso(createdAt, 1)
     });
     store.situationLastAction = {
@@ -353,10 +356,10 @@ export function postSituationMessage(store, { roomId, text, actorId = "human_rev
       roomId: scenarioResult.actRecord.roomId,
       sourceMessageId: message.id,
       systemMessageId: systemMessage.id,
-      workOrderId: scenarioResult.actRecord.createdWorkOrderIds[0] || null,
+      workOrderId: routedWorkOrderId,
       cardIds: scenarioResult.actRecord.createdCardIds,
       approvalIds: scenarioResult.actRecord.createdApprovalIds,
-      sourceEventId: scenarioResult.actRecord.sourceEventId,
+      sourceEventId: routedSourceEventId,
       summary: scenarioResult.reused
         ? `${parsed.agentId} selected completed ${scenarioResult.actRecord.label}; no duplicate artifacts created.`
         : `${parsed.agentId} routed to ${scenarioResult.actRecord.label} and created local artifacts.`,
@@ -366,8 +369,9 @@ export function postSituationMessage(store, { roomId, text, actorId = "human_rev
       roomId: scenarioResult.actRecord.roomId,
       eventType: scenarioResult.reused ? "demo_command_reused_completed_act" : "demo_command_routed",
       artifactType: scenarioResult.reused ? "demo_act" : "work_order",
-      artifactId: scenarioResult.actRecord.createdWorkOrderIds[0] || scenarioResult.actRecord.actId,
+      artifactId: routedWorkOrderId || scenarioResult.actRecord.actId,
       actorId,
+      sourceEventId: routedSourceEventId,
       summary: store.situationLastAction.summary,
       createdAt
     });
@@ -572,7 +576,12 @@ export function resolveSituationApproval(
   approval.decidedBy = actorId;
   approval.decidedAt = createdAt;
   approval.externalEffect = "none";
-  approval.localOnlyNotice = "Local approval recorded only; no email sent, access granted, or memory promoted.";
+  approval.gateAgentId ||= approval.controlAgentId || approval.requestedByAgentId;
+  approval.controlAgentId ||= approval.gateAgentId;
+  approval.responsibleAgentId ||= responsibleAgentIdForApproval(approval);
+  approval.localOnlyNotice = "Local approval recorded only; no external side effect executed.";
+  const gateAgentId = approval.gateAgentId || approval.controlAgentId || approval.requestedByAgentId;
+  const responsibleAgentId = approval.responsibleAgentId || responsibleAgentIdForApproval(approval);
   const workOrder = store.workOrders.find((item) => item.id === approval.workOrderId);
   if (workOrder) {
     const relatedApprovals = store.approvalRequests.filter((item) => item.workOrderId === workOrder.id);
@@ -597,7 +606,7 @@ export function resolveSituationApproval(
     id: createId("card", approvalId, approval.status),
     roomId: approval.roomId,
     type: "human_approval",
-    agentId: approval.requestedByAgentId,
+    agentId: gateAgentId,
     caseId: approval.caseId,
     title: `Approval ${approval.status}`,
     summary: `${actorId} ${approval.status} ${approval.actionType}. Local approval recorded only; no external action executed.`,
@@ -611,7 +620,7 @@ export function resolveSituationApproval(
   store.situationCards.unshift(card);
   const proposal = appendAgentNextStepProposal(store, {
     roomId: approval.roomId,
-    agentId: approval.requestedByAgentId,
+    agentId: responsibleAgentId,
     caseId: approval.caseId,
     workOrderId: approval.workOrderId,
     sourceType: "approval",
@@ -625,7 +634,7 @@ export function resolveSituationApproval(
   approval.nextStepProposalId = proposal.id;
   appendSystemRoomMessage(store, {
     roomId: approval.roomId,
-    text: `${approval.requestedByAgentId} proposed next steps after ${approval.actionType}: ${proposal.id}.`,
+    text: `${responsibleAgentId} proposed next steps after ${approval.actionType}; gate preserved by ${gateAgentId}: ${proposal.id}.`,
     sourceEventId: approval.sourceEventId || null,
     createdAt: offsetIso(createdAt, 2)
   });
@@ -647,6 +656,7 @@ export function resolveSituationApproval(
     approvalId: approval.id,
     workOrderId: approval.workOrderId,
     sourceEventId: approval.sourceEventId || null,
+    proposalCardId: proposal.id,
     cardIds: [card.id, proposal.id],
     summary: `Approval ${approval.status}; local-only next-step proposal created.`,
     createdAt
@@ -968,6 +978,232 @@ export function summarizeSituationMetrics(store) {
   };
 }
 
+export function buildSituationTraceChain(store, selector = {}) {
+  const sourceEvents = store?.situationSourceEvents || [];
+  const workOrders = store?.workOrders || [];
+  const cards = store?.situationCards || [];
+  const approvals = store?.approvalRequests || [];
+  const followThroughs = store?.situationFollowThroughs || [];
+  const logs = store?.situationEventLog || [];
+  const selected = selector || {};
+
+  let sourceEvent = sourceEvents.find((item) => item.id === selected.sourceEventId || item.sourceEventId === selected.sourceEventId) || null;
+  let workOrder = workOrders.find((item) => item.id === selected.workOrderId || item.workOrderId === selected.workOrderId) || null;
+  let approval = approvals.find((item) => item.id === selected.approvalId || item.approvalId === selected.approvalId) || null;
+  let proposal =
+    cards.find(
+      (item) =>
+        item.type === "agent_next_step_proposal" &&
+        (item.id === selected.proposalCardId || item.proposalCardId === selected.proposalCardId)
+    ) || null;
+  let followThrough =
+    followThroughs.find((item) => item.id === selected.followThroughId || item.followThroughId === selected.followThroughId) || null;
+
+  if (followThrough && !proposal) {
+    proposal = cards.find((item) => item.type === "agent_next_step_proposal" && item.id === followThrough.proposalCardId) || null;
+  }
+  if (proposal && !followThrough) {
+    followThrough = followThroughs.find((item) => item.proposalCardId === proposal.id) || null;
+  }
+  if (proposal?.sourceType === "approval" && !approval) {
+    approval = approvals.find((item) => item.id === proposal.sourceId || item.approvalId === proposal.sourceId) || null;
+  }
+  if (followThrough?.sourceType === "approval" && !approval) {
+    approval = approvals.find((item) => item.id === followThrough.sourceId || item.approvalId === followThrough.sourceId) || null;
+  }
+  if (approval && !workOrder) {
+    workOrder = workOrders.find((item) => item.id === approval.workOrderId || item.workOrderId === approval.workOrderId) || null;
+  }
+  if (proposal?.workOrderId && !workOrder) {
+    workOrder = workOrders.find((item) => item.id === proposal.workOrderId || item.workOrderId === proposal.workOrderId) || null;
+  }
+  if (followThrough?.workOrderId && !workOrder) {
+    workOrder = workOrders.find((item) => item.id === followThrough.workOrderId || item.workOrderId === followThrough.workOrderId) || null;
+  }
+  if (workOrder && !sourceEvent) {
+    sourceEvent =
+      sourceEvents.find((item) => item.id === workOrder.sourceEventId || item.sourceEventId === workOrder.sourceEventId) || null;
+  }
+  if (approval?.sourceEventId && !sourceEvent) {
+    sourceEvent =
+      sourceEvents.find((item) => item.id === approval.sourceEventId || item.sourceEventId === approval.sourceEventId) || null;
+  }
+  if (proposal?.sourceEventId && !sourceEvent) {
+    sourceEvent =
+      sourceEvents.find((item) => item.id === proposal.sourceEventId || item.sourceEventId === proposal.sourceEventId) || null;
+  }
+  if (followThrough?.sourceEventId && !sourceEvent) {
+    sourceEvent =
+      sourceEvents.find((item) => item.id === followThrough.sourceEventId || item.sourceEventId === followThrough.sourceEventId) || null;
+  }
+  if (sourceEvent && !workOrder) {
+    workOrder = latestDatedItem(workOrders.filter((item) => item.sourceEventId === sourceEvent.id || item.sourceEventId === sourceEvent.sourceEventId));
+  }
+
+  const sourceEventId = sourceEvent?.id || selected.sourceEventId || workOrder?.sourceEventId || approval?.sourceEventId || proposal?.sourceEventId || followThrough?.sourceEventId || null;
+  const workOrderId = workOrder?.id || selected.workOrderId || approval?.workOrderId || proposal?.workOrderId || followThrough?.workOrderId || null;
+  const traceId = selected.traceId || workOrder?.traceId || approval?.traceId || proposal?.traceId || followThrough?.traceId || null;
+  const knownIds = new Set(
+    [
+      sourceEventId,
+      workOrderId,
+      approval?.id,
+      selected.approvalId,
+      proposal?.id,
+      selected.proposalCardId,
+      followThrough?.id,
+      selected.followThroughId
+    ].filter(Boolean)
+  );
+
+  const relatedCards = sortByCreatedAt(
+    cards.filter((card) => card.type !== "agent_next_step_proposal" && artifactBelongsToTrace(card, { sourceEventId, workOrderId, traceId, knownIds }))
+  );
+  const relatedApprovals = sortByCreatedAt(
+    approvals.filter((item) => artifactBelongsToTrace(item, { sourceEventId, workOrderId, traceId, knownIds }))
+  );
+  const relatedProposals = sortByCreatedAt(
+    cards.filter((card) => card.type === "agent_next_step_proposal" && artifactBelongsToTrace(card, { sourceEventId, workOrderId, traceId, knownIds }))
+  );
+  const relatedFollowThroughs = sortByCreatedAt(
+    followThroughs.filter((item) => artifactBelongsToTrace(item, { sourceEventId, workOrderId, traceId, knownIds }))
+  );
+  const relatedLogs = sortByCreatedAt(
+    logs.filter((log) => {
+      if (sourceEventId && log.sourceEventId === sourceEventId) return true;
+      if (knownIds.has(log.artifactId)) return true;
+      return false;
+    })
+  );
+
+  const externalEffectSummary = summarizeExternalEffects([
+    sourceEvent,
+    workOrder,
+    ...relatedCards,
+    ...relatedApprovals,
+    ...relatedProposals,
+    ...relatedFollowThroughs
+  ]);
+
+  return {
+    selector: {
+      sourceEventId: sourceEventId || null,
+      workOrderId: workOrderId || null,
+      approvalId: approval?.id || selected.approvalId || null,
+      proposalCardId: proposal?.id || selected.proposalCardId || null,
+      followThroughId: followThrough?.id || selected.followThroughId || null,
+      traceId: traceId || null
+    },
+    sourceEvent,
+    workOrder,
+    cards: relatedCards,
+    approvals: relatedApprovals,
+    nextStepProposals: relatedProposals,
+    followThroughs: relatedFollowThroughs,
+    logs: relatedLogs,
+    missingLinks: buildTraceMissingLinks({
+      sourceEvent,
+      workOrder,
+      cards: relatedCards,
+      approvals: relatedApprovals,
+      nextStepProposals: relatedProposals,
+      followThroughs: relatedFollowThroughs,
+      logs: relatedLogs
+    }),
+    externalEffectSummary,
+    truthLabel: SITUATION_TRUTH_LABEL
+  };
+}
+
+export function buildSituationDemoReadinessReport(store) {
+  const completedActIds = store?.situationDemoConductor?.completedActIds || [];
+  const completedSet = new Set(completedActIds);
+  const conductorActs = SITUATION_ROOM_SCENARIOS.map((scenario) => ({
+    scenarioId: scenario.id,
+    label: scenario.label,
+    completed: completedSet.has(scenario.id)
+  }));
+  const approvals = store?.approvalRequests || [];
+  const nextStepProposals = (store?.situationCards || []).filter((card) => card.type === "agent_next_step_proposal");
+  const allArtifacts = [
+    ...(store?.situationSourceEvents || []),
+    ...(store?.workOrders || []),
+    ...(store?.situationCards || []),
+    ...approvals,
+    ...(store?.situationFollowThroughs || [])
+  ];
+
+  return {
+    conductorActs,
+    completedActCount: conductorActs.filter((act) => act.completed).length,
+    totalActCount: conductorActs.length,
+    allConductorActsRun: conductorActs.every((act) => act.completed),
+    activeAgentsShown: ACTIVE_SITUATION_AGENTS.length,
+    allActiveAgentsShown: ACTIVE_SITUATION_AGENTS.length === 6,
+    sourceEventsCount: (store?.situationSourceEvents || []).length,
+    workOrdersCount: (store?.workOrders || []).length,
+    approvalGatesCount: approvals.length,
+    reviewedApprovalsCount: approvals.filter((approval) => approval.status !== "pending").length,
+    pendingNextStepProposalsCount: nextStepProposals.filter((card) => card.status === "pending").length,
+    selectedFollowThroughCount: (store?.situationFollowThroughs || []).length,
+    realExternalEffects: summarizeExternalEffects(allArtifacts),
+    fixtureProofBoundary: "Synthetic/local fixture only; business proof still requires anonymized reviewer cases.",
+    nextBusinessAsk: "3-5 anonymized real Treuhand cases",
+    localOnlyNotice: "No backend, database, external connector, production permission change, outbound message, or persistent knowledge update."
+  };
+}
+
+function artifactBelongsToTrace(item, { sourceEventId, workOrderId, traceId, knownIds }) {
+  if (!item) return false;
+  if (sourceEventId && item.sourceEventId === sourceEventId) return true;
+  if (workOrderId && item.workOrderId === workOrderId) return true;
+  if (traceId && item.traceId === traceId) return true;
+  if (knownIds.has(item.id) || knownIds.has(item.cardId) || knownIds.has(item.approvalId) || knownIds.has(item.followThroughId)) {
+    return true;
+  }
+  if (item.sourceId && knownIds.has(item.sourceId)) return true;
+  if (item.proposalCardId && knownIds.has(item.proposalCardId)) return true;
+  return false;
+}
+
+function buildTraceMissingLinks({ sourceEvent, workOrder, cards, approvals, nextStepProposals, followThroughs, logs }) {
+  const missingLinks = [];
+  if (!sourceEvent) missingLinks.push({ link: "source_event", status: "not_created_yet", label: "not created yet" });
+  if (!workOrder) missingLinks.push({ link: "work_order", status: "not_created_yet", label: "not created yet" });
+  if (cards.length === 0) missingLinks.push({ link: "agent_control_cards", status: "not_created_yet", label: "not created yet" });
+  if (approvals.length === 0) {
+    missingLinks.push({ link: "approval_gate", status: "not_created_yet", label: "not created yet" });
+  }
+  const hasPendingApproval = approvals.some((approval) => approval.status === "pending");
+  const hasReviewedApproval = approvals.some((approval) => approval.status !== "pending");
+  if (nextStepProposals.length === 0) {
+    missingLinks.push({
+      link: "next_step_proposal",
+      status: hasPendingApproval ? "waiting_for_human_review" : "not_created_yet",
+      label: hasPendingApproval ? "waiting for human review" : "not created yet"
+    });
+  }
+  if (followThroughs.length === 0) {
+    const pendingProposal = nextStepProposals.some((proposal) => proposal.status === "pending");
+    missingLinks.push({
+      link: "selected_follow_through",
+      status: hasPendingApproval || pendingProposal || hasReviewedApproval ? "waiting_for_human_review" : "not_created_yet",
+      label: hasPendingApproval || pendingProposal || hasReviewedApproval ? "waiting for human review" : "not created yet"
+    });
+  }
+  if (logs.length === 0) missingLinks.push({ link: "logs", status: "not_created_yet", label: "not created yet" });
+  return missingLinks;
+}
+
+function summarizeExternalEffects(artifacts) {
+  const nonNone = artifacts.filter(Boolean).filter((item) => item.externalEffect && item.externalEffect !== "none");
+  return nonNone.length > 0 ? "non_none_detected" : "none";
+}
+
+function sortByCreatedAt(items) {
+  return [...items].sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+}
+
 export function runWeekTwoContinuityScenario(store, createdAt = new Date().toISOString()) {
   ensureSituationRoomCollections(store);
   const caseRecord = activeCaseFromStore(store);
@@ -1088,7 +1324,14 @@ export function summarizeSituationAgentParticipation(store) {
     );
     const controlOutputs = (store.controlAgentOutputs || []).filter((output) => output.agentCode === agent.agentId);
     const agentRuns = (store.agentRuns || []).filter((run) => run.agentCode === agent.agentId);
-    const approvals = store.approvalRequests.filter((approval) => approval.requestedByAgentId === agent.agentId);
+    const approvals = store.approvalRequests.filter((approval) =>
+      [
+        approval.requestedByAgentId,
+        approval.gateAgentId,
+        approval.controlAgentId,
+        approval.responsibleAgentId
+      ].includes(agent.agentId)
+    );
     const latest = latestDatedItem([
       ...cards.map((item) => ({ createdAt: item.createdAt, label: item.title })),
       ...workOrders.map((item) => ({ createdAt: item.updatedAt || item.createdAt, label: item.command })),
@@ -1269,6 +1512,8 @@ export function selectAgentNextStep(
     roomId: proposal.roomId,
     workOrderId: proposal.workOrderId || null,
     sourceEventId: proposal.sourceEventId || null,
+    approvalId: proposal.sourceType === "approval" ? proposal.sourceId : null,
+    proposalCardId: proposal.id,
     cardIds: [proposal.id, card.id],
     followThroughId: followThrough.id,
     summary: `${choice.label} selected locally; no external action executed.`,
@@ -1357,6 +1602,9 @@ function runInboundEmailScenario(store, scenario, createdAt, sourceEvent) {
     workOrderId: workOrder.id,
     caseId: caseRecord.id,
     requestedByAgentId: "A-AUTH-001",
+    gateAgentId: "A-AUTH-001",
+    controlAgentId: "A-AUTH-001",
+    responsibleAgentId: "A-TREU-001",
     approverRole: "reviewer",
     actionType: "review_before_send",
     rationale: "Client-facing draft must be reviewed before any email is sent.",
@@ -1379,7 +1627,7 @@ function runConfidentialUploadScenario(store, scenario, createdAt, sourceEvent) 
   const traceId = createId("trace", scenario.id, createdAt);
   const workOrder = createScenarioWorkOrder({ scenario, caseRecord, command: "@sec check this upload attempt", traceId, createdAt });
   const syntheticUpload = {
-    destination: "external_llm_upload_box",
+    destination: "external_assistant_upload_box",
     content: "Synthetic payroll and bank statement excerpt with AHV redacted. Do not paste into external tools."
   };
   const privacy = validatePrivacyForExport(syntheticUpload);
@@ -1389,7 +1637,7 @@ function runConfidentialUploadScenario(store, scenario, createdAt, sourceEvent) 
     caseId: caseRecord.id,
     agentCode: "A-SEC-001",
     targetType: "external_llm_upload_attempt",
-    targetId: "external_llm_upload_box",
+    targetId: "external_assistant_upload_box",
     severity: "high",
     status: "blocked",
     summary: `External LLM upload attempt contains sensitive keyword signal(s): ${riskSignals.map((signal) => signal.label).join(", ")}. Use an internal redacted packet instead.`,
@@ -1416,7 +1664,7 @@ function runConfidentialUploadScenario(store, scenario, createdAt, sourceEvent) 
     })
   ]);
   const cards = [
-    scenarioCard(scenario, traceId, "external_llm_upload_attempt", "system", caseRecord.id, "External LLM upload attempted", "Human pasted synthetic confidential text into the simulated ChatGPT/Claude box.", "warning", [], createdAt),
+    scenarioCard(scenario, traceId, "external_llm_upload_attempt", "system", caseRecord.id, "External assistant upload attempted", "Human pasted synthetic confidential text into the simulated external assistant box.", "warning", [], createdAt),
     scenarioCard(scenario, traceId, "sensitive_content_detected", "A-SEC-001", caseRecord.id, "Sensitive content detected", `Deterministic risk signals: ${riskSignals.map((signal) => signal.label).join(", ")}.`, "high", [], createdAt),
     scenarioCard(scenario, traceId, "policy_violation_warning", "A-SEC-001", caseRecord.id, "Upload blocked locally", "A-SEC-001 recommends using an internal redacted packet.", "high", [], createdAt),
     scenarioCard(scenario, traceId, "audit_event_recorded", "A-CAD-001", caseRecord.id, "Audit event queued", "The weekly audit will summarize this security event.", "info", [], createdAt)
@@ -1434,6 +1682,9 @@ function runEmployeeOnboardingScenario(store, scenario, createdAt, sourceEvent) 
     workOrderId: workOrder.id,
     caseId: caseRecord.id,
     requestedByAgentId: "A-AUTH-001",
+    gateAgentId: "A-AUTH-001",
+    controlAgentId: "A-AUTH-001",
+    responsibleAgentId: "A-AUTH-001",
     approverRole: "boss",
     actionType: "grant_read_only_and_draft_access",
     rationale: "Junior assistant access should be least privilege and boss-approved.",
@@ -1515,6 +1766,9 @@ function runAgentHandoffGapScenario(store, scenario, createdAt, sourceEvent) {
     workOrderId: workOrder.id,
     caseId: caseRecord.id,
     requestedByAgentId: "A-GAP-001",
+    gateAgentId: "A-GAP-001",
+    controlAgentId: "A-GAP-001",
+    responsibleAgentId: "A-GAP-001",
     approverRole: "reviewer",
     actionType: "approve_operating_memory_candidate",
     rationale: "Reusable period-normalization lesson must be approved before becoming operating memory.",
@@ -1770,6 +2024,9 @@ function createApprovalRequest({
   workOrderId,
   caseId,
   requestedByAgentId,
+  gateAgentId = requestedByAgentId,
+  controlAgentId = gateAgentId,
+  responsibleAgentId = requestedByAgentId,
   approverRole,
   actionType,
   rationale,
@@ -1782,7 +2039,10 @@ function createApprovalRequest({
     roomId,
     workOrderId,
     caseId,
-    requestedByAgentId,
+    requestedByAgentId: controlAgentId,
+    gateAgentId,
+    controlAgentId,
+    responsibleAgentId,
     approverRole,
     actionType,
     status: "pending",
@@ -1890,16 +2150,24 @@ function normalizeNextStepChoice(choice, index) {
   };
 }
 
+function responsibleAgentIdForApproval(approval) {
+  if (approval.responsibleAgentId) return approval.responsibleAgentId;
+  if (approval.actionType === "review_before_send") return "A-TREU-001";
+  if (approval.actionType === "grant_read_only_and_draft_access") return "A-AUTH-001";
+  if (approval.actionType === "approve_operating_memory_candidate") return "A-GAP-001";
+  return approval.requestedByAgentId || approval.controlAgentId || approval.gateAgentId || "A-TREU-001";
+}
+
 function nextStepSummaryForApproval(approval) {
   const statusCopy = approval.status === "approved" ? "approved" : "rejected";
   if (approval.actionType === "review_before_send") {
     return `Draft review was ${statusCopy}. Choose the next safe local consequence before any client use.`;
   }
   if (approval.actionType === "grant_read_only_and_draft_access") {
-    return `Onboarding access recommendation was ${statusCopy}. Choose the next local access-planning consequence; no IAM change will run.`;
+    return `Onboarding access recommendation was ${statusCopy}. Choose the next local access-planning consequence; no production permission change will run.`;
   }
   if (approval.actionType === "approve_operating_memory_candidate") {
-    return `Memory candidate review was ${statusCopy}. Choose the next local backlog consequence; no durable memory promotion will run.`;
+    return `Knowledge candidate review was ${statusCopy}. Choose the next local backlog consequence; no persistent knowledge update will run.`;
   }
   return `Choose the next local-only review step after ${approval.actionType} was ${statusCopy}.`;
 }
@@ -1922,7 +2190,7 @@ function nextStepChoicesForApproval(approval) {
     grant_read_only_and_draft_access: {
       approved: [
         choice("record_least_privilege_plan", "Record local least-privilege plan", "Keep the access recommendation as a local planning record only.", "record_local_access_plan"),
-        choice("tighten_scope_before_real_iam", "Tighten scope before real IAM", "Reduce the recommended scope before any future production access request.", "tighten_access_scope"),
+        choice("tighten_scope_before_permission_request", "Tighten scope before production request", "Reduce the recommended scope before any future production permission request.", "tighten_access_scope"),
         choice("schedule_access_review", "Schedule access review", "Record a local review reminder for the access plan.", "schedule_local_access_review")
       ],
       rejected: [
@@ -1989,7 +2257,7 @@ function choice(id, label, description, localConsequenceType) {
 function detectUploadRiskSignals(upload) {
   const text = `${upload.destination || ""} ${upload.content || ""}`.toLowerCase();
   const candidates = [
-    { id: "external_llm_destination", label: "external LLM destination", terms: ["external_llm", "chatgpt", "claude"] },
+    { id: "external_llm_destination", label: "external assistant destination", terms: ["external_llm", "external_assistant", "chatgpt", "claude"] },
     { id: "payroll_keyword", label: "payroll keyword", terms: ["payroll", "salary", "lohn"] },
     { id: "bank_keyword", label: "bank statement keyword", terms: ["bank statement", "bankauszug", "kontoauszug"] },
     { id: "client_sensitive_keyword", label: "client-sensitive text", terms: ["client", "confidential", "do not paste"] },

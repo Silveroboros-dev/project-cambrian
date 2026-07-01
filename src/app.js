@@ -30,6 +30,8 @@ import {
   SITUATION_ROOM_SCENARIOS,
   appendAgentNextStepProposal,
   appendTreuhandReviewNextStepProposal,
+  buildSituationDemoReadinessReport,
+  buildSituationTraceChain,
   exportSituationDemoSnapshot,
   importSituationDemoSnapshot,
   postSituationMessage,
@@ -220,6 +222,8 @@ function renderSituationRoom() {
   const expandedAgent = agentParticipation.find((agent) => agent.agentId === store.expandedSituationAgentId);
   const conductor = store.situationDemoConductor || {};
   const situationMetrics = summarizeSituationMetrics(store);
+  const activeTraceChain = buildSituationTraceChain(store, store.situationLastAction || conductor.lastAct || {});
+  const readinessReport = buildSituationDemoReadinessReport(store);
   const activePack = store.activeSituationPack || "cards";
   const chatMessages = [...roomMessages].sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
 
@@ -261,6 +265,7 @@ function renderSituationRoom() {
           <li>Ask for 3-5 anonymized Treuhand cases.</li>
         </ol>
         ${renderDemoConductorProgress(conductor)}
+        ${renderSituationDemoReadinessReport(readinessReport)}
       </section>
 
       <section class="subpanel agent-status-panel">
@@ -295,6 +300,7 @@ function renderSituationRoom() {
           ${SITUATION_ROOM_SCENARIOS.map((scenario, index) => renderScenarioButton(scenario, index, conductor)).join("")}
         </div>
         ${renderDemoActResult(conductor.lastAct)}
+        ${renderSituationTraceChain(activeTraceChain)}
         <form id="situation-message-form" class="validation-form situation-input">
           <label>
             Manual agent tag (optional)
@@ -347,7 +353,7 @@ function renderSituationRoom() {
         </div>
         ${
           allPendingNextSteps.length > 0
-            ? `<button class="secondary-button full-width-button" id="select-first-next-step-local" title="Select one pending next step locally for demo flow">Select first pending next step locally</button>`
+            ? `<button class="secondary-button full-width-button" id="select-first-next-step-local" title="Select one pending next step across rooms locally for demo flow">Select first pending next step across rooms locally</button>`
             : ""
         }
         <div class="artifact-list compact-list">
@@ -366,7 +372,7 @@ function renderSituationRoom() {
         </div>
         ${
           allPendingApprovals.length > 0
-            ? `<button class="secondary-button full-width-button" id="approve-all-demo-approvals" title="Record local approvals for demo-safe approval gates">Approve all demo-safe approvals</button>`
+            ? `<button class="secondary-button full-width-button" id="approve-all-demo-approvals" title="Record local approvals for demo-safe approval gates across rooms">Approve all demo-safe approvals across rooms</button>`
             : ""
         }
         <div class="artifact-list compact-list">
@@ -1392,6 +1398,110 @@ function renderSourceEventPanel(sourceEvent) {
   `;
 }
 
+function renderSituationTraceChain(chain) {
+  const missing = new Map((chain.missingLinks || []).map((item) => [item.link, item.label]));
+  const sourceEventId = chain.sourceEvent?.id || chain.selector?.sourceEventId || "";
+  const workOrderId = chain.workOrder?.id || chain.selector?.workOrderId || "";
+  const approvalIds = chain.approvals.map((approval) => approval.id);
+  const proposalIds = chain.nextStepProposals.map((proposal) => proposal.id);
+  const followThroughIds = chain.followThroughs.map((record) => record.id);
+  const logIds = chain.logs.map((log) => log.id);
+  const traceId =
+    chain.selector?.traceId ||
+    chain.workOrder?.traceId ||
+    chain.approvals[0]?.traceId ||
+    chain.nextStepProposals[0]?.traceId ||
+    chain.followThroughs[0]?.traceId ||
+    "";
+
+  return `
+    <div class="trace-chain-panel">
+      <div class="subpanel-heading compact-heading">
+        <h3>Trace Chain</h3>
+        <span>${escapeHtml(chain.externalEffectSummary || "none")}</span>
+      </div>
+      <p class="boundary-copy">local synthetic trace only; no external action executed.</p>
+      <div class="trace-chain-list">
+        ${renderTraceChainRow("Source event", sourceEventId, missing.get("source_event"), [
+          sourceEventId ? renderCompactIdMeta("sourceEventId", [sourceEventId], 1) : "",
+          chain.sourceEvent?.triggerType ? `<span>trigger: ${escapeHtml(chain.sourceEvent.triggerType)}</span>` : ""
+        ])}
+        ${renderTraceChainRow("Work order", workOrderId, missing.get("work_order"), [
+          workOrderId ? renderCompactIdMeta("workOrderId", [workOrderId], 1) : "",
+          chain.workOrder?.agentId ? `<span>agent: ${escapeHtml(chain.workOrder.agentId)}</span>` : "",
+          traceId ? renderCompactIdMeta("traceId", [traceId], 1) : ""
+        ])}
+        ${renderTraceChainRow("Agent/control cards", `${chain.cards.length} card(s)`, missing.get("agent_control_cards"), [
+          renderCompactIdMeta("cards", chain.cards.map((card) => card.id), 2),
+          traceId ? renderCompactIdMeta("traceId", [traceId], 1) : ""
+        ])}
+        ${renderTraceChainRow("Approval gate", approvalIds.length ? `${approvalIds.length} gate(s)` : "", missing.get("approval_gate"), [
+          renderCompactIdMeta("approvalId", approvalIds, 1),
+          chain.approvals[0]?.gateAgentId ? `<span>gate: ${escapeHtml(chain.approvals[0].gateAgentId)}</span>` : "",
+          chain.approvals[0]?.responsibleAgentId ? `<span>responsible: ${escapeHtml(chain.approvals[0].responsibleAgentId)}</span>` : ""
+        ])}
+        ${renderTraceChainRow("Next-step proposal", proposalIds.length ? `${proposalIds.length} proposal(s)` : "", missing.get("next_step_proposal"), [
+          renderCompactIdMeta("proposalCardId", proposalIds, 1),
+          chain.nextStepProposals[0]?.agentId ? `<span>agent: ${escapeHtml(chain.nextStepProposals[0].agentId)}</span>` : ""
+        ])}
+        ${renderTraceChainRow("Selected local follow-through", followThroughIds.length ? `${followThroughIds.length} selected` : "", missing.get("selected_follow_through"), [
+          renderCompactIdMeta("followThroughId", followThroughIds, 1),
+          chain.followThroughs[0]?.selectedChoiceLabel ? `<span>choice: ${escapeHtml(chain.followThroughs[0].selectedChoiceLabel)}</span>` : ""
+        ])}
+        ${renderTraceChainRow("Logs", logIds.length ? `${logIds.length} log(s)` : "", missing.get("logs"), [
+          renderCompactIdMeta("logs", logIds, 2)
+        ])}
+      </div>
+    </div>
+  `;
+}
+
+function renderTraceChainRow(label, value, missingLabel, metaItems) {
+  const status = value || missingLabel || "not created yet";
+  const isMissing = !value;
+  return `
+    <div class="trace-chain-row ${isMissing ? "is-missing" : ""}">
+      <strong>${escapeHtml(label)}</strong>
+      <span>${escapeHtml(status)}</span>
+      <div class="mini-meta">
+        ${metaItems.filter(Boolean).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderSituationDemoReadinessReport(report) {
+  return `
+    <div class="demo-readiness-report">
+      <div class="subpanel-heading compact-heading">
+        <h3>Demo readiness</h3>
+        <span>${escapeHtml(report.completedActCount)}/${escapeHtml(report.totalActCount)} acts</span>
+      </div>
+      <div class="readiness-grid">
+        ${readinessItem("Conductor acts", report.allConductorActsRun ? "complete" : "not complete")}
+        ${readinessItem("Active agents", `${report.activeAgentsShown}/6 shown`)}
+        ${readinessItem("Source events", String(report.sourceEventsCount))}
+        ${readinessItem("Work orders", String(report.workOrdersCount))}
+        ${readinessItem("Approval gates", String(report.approvalGatesCount))}
+        ${readinessItem("Reviewed gates", String(report.reviewedApprovalsCount))}
+        ${readinessItem("Pending next steps", String(report.pendingNextStepProposalsCount))}
+        ${readinessItem("Follow-through", String(report.selectedFollowThroughCount))}
+      </div>
+      <p class="boundary-copy">real external effects: ${escapeHtml(report.realExternalEffects)}. ${escapeHtml(report.fixtureProofBoundary)}</p>
+      <p class="compact-copy">next business ask: ${escapeHtml(report.nextBusinessAsk)}.</p>
+    </div>
+  `;
+}
+
+function readinessItem(label, value) {
+  return `
+    <div>
+      <strong>${escapeHtml(label)}</strong>
+      <span>${escapeHtml(value)}</span>
+    </div>
+  `;
+}
+
 function renderCompactIdMeta(label, ids = [], maxVisible = 2) {
   if (!ids.length) return "";
   const visible = ids.slice(0, maxVisible).map((id) => compactId(id));
@@ -1863,7 +1973,9 @@ function renderSituationApproval(approval) {
         ${renderCompactIdMeta("approval", [approval.id], 1)}
         ${renderCompactIdMeta("work order", [approval.workOrderId], 1)}
         ${approval.sourceEventId ? renderCompactIdMeta("source event", [approval.sourceEventId], 1) : ""}
-        <span>agent: ${escapeHtml(approval.requestedByAgentId)}</span>
+        <span>gate agent: ${escapeHtml(approval.gateAgentId || approval.controlAgentId || approval.requestedByAgentId)}</span>
+        <span>control agent: ${escapeHtml(approval.controlAgentId || approval.requestedByAgentId)}</span>
+        <span>responsible agent: ${escapeHtml(approval.responsibleAgentId || approval.requestedByAgentId)}</span>
         <span>approver: ${escapeHtml(approval.approverRole)}</span>
         ${renderCompactIdMeta("trace", [approval.traceId], 1)}
         <span>external effects: ${escapeHtml(approval.externalEffect || "none")}</span>

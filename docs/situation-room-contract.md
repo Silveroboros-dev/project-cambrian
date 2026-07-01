@@ -48,6 +48,12 @@ It is not Slack, Gmail, browser monitoring, IAM, production telemetry, or autono
 12. **Demo Snapshots**
     Exports and imports versioned local demo-session snapshots so a second demo can resume a week later without adding a backend or database.
 
+13. **Trace Chain**
+    Shows the active causal chain from source event to work order, cards, approval gate, responsible-agent next-step proposal, selected local follow-through, and logs. The chain is reconstructed from explicit IDs and must state: local synthetic trace only; no external action executed.
+
+14. **Demo Readiness Report**
+    Summarizes whether the five conductor acts have run, whether the six active agents are shown, artifact counts, reviewed gates, pending next steps, selected follow-through records, external-effect status, fixture/proof boundary, and the next business ask.
+
 ## Identity Keys
 
 Every Situation Room artifact must carry explicit identity:
@@ -57,6 +63,8 @@ Every Situation Room artifact must carry explicit identity:
 - `workOrderId` for tagged work orders;
 - `cardId` for typed situation cards;
 - `approvalId` for human approval gates;
+- `gateAgentId` / `controlAgentId` for the local approval/control gate;
+- `responsibleAgentId` for the agent that proposes follow-through after the human decision;
 - `sourceEventId` for the synthetic event that triggered an agent response;
 - `proposalCardId` for responsible-agent next-step proposals;
 - `followThroughId` for selected local consequences;
@@ -259,3 +267,19 @@ Selecting a next step must create a `situationFollowThroughs` record and a `loca
 ### AC-SR-35: No External Execution After Approval
 
 Approval and next-step selection must never send emails, grant IAM or Workspace access, promote operating memory, call Slack/Gmail/Drive/browser/LLM/telemetry APIs, or claim production execution. UI controls must say `Select locally`, not execute/send/grant/promote language.
+
+### AC-SR-36: Responsible-Agent Follow-Through Semantics
+
+Approval requests must distinguish the local gate/control agent from the responsible follow-through agent. For `review_before_send`, `gateAgentId` and `controlAgentId` are `A-AUTH-001`, while `responsibleAgentId` and the resulting next-step proposal `agentId` are `A-TREU-001`. For `grant_read_only_and_draft_access`, the responsible agent is `A-AUTH-001`. For `approve_operating_memory_candidate`, the responsible agent is `A-GAP-001`.
+
+### AC-SR-37: Situation Trace Chain
+
+The model must expose a pure trace-chain builder that can reconstruct the same local chain from any of `sourceEventId`, `workOrderId`, `approvalId`, `proposalCardId`, or `followThroughId`. The rendered Situation Room must show Source event, Work order, Agent/control cards, Approval gate, Next-step proposal, Selected local follow-through, and Logs. Missing links must be explicit as `not created yet` or `waiting for human review`.
+
+### AC-SR-38: Demo Readiness Report
+
+The Situation Room must render a local demo-readiness report with conductor-act completion, six-agent visibility, source-event count, work-order count, approval-gate count, reviewed-gate count, pending next-step count, selected follow-through count, real external effects, fixture/proof boundary, and next business ask: 3-5 anonymized real Treuhand cases.
+
+### AC-SR-39: Trace Chain Has No External Effects
+
+The Trace Chain panel must clearly state `local synthetic trace only; no external action executed.` Trace reconstruction and selected follow-through records must report `externalEffect: none`; missing trace links must not be treated as external execution or production proof.

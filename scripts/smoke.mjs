@@ -5,6 +5,8 @@ import { createInitialStore } from "../src/demoData.js";
 import { sampleCaseImports } from "../src/phase2SampleCases.js";
 import {
   GUIDED_DEMO_SCENARIO_ORDER,
+  buildSituationDemoReadinessReport,
+  buildSituationTraceChain,
   createSituationDemoSnapshot,
   importSituationDemoSnapshot,
   postSituationMessage,
@@ -84,10 +86,24 @@ resolveSituationApproval(store, approvalToResolve.id, "approved", "human_reviewe
 const nextStepProposal = store.situationCards.find((card) => card.type === "agent_next_step_proposal" && card.sourceId === approvalToResolve.id);
 assert.ok(nextStepProposal);
 assert.equal(nextStepProposal.status, "pending");
+assert.equal(approvalToResolve.gateAgentId, "A-AUTH-001");
+assert.equal(approvalToResolve.responsibleAgentId, "A-TREU-001");
+assert.equal(nextStepProposal.agentId, "A-TREU-001");
 const selectedNextStep = selectFirstPendingNextStep(store, "human_reviewer", "2026-06-30T00:09:30.000Z");
 assert.ok(selectedNextStep.followThrough);
 assert.equal(selectedNextStep.followThrough.externalEffect, "none");
 assert.equal(store.situationFollowThroughs.length, 1);
+const traceChain = buildSituationTraceChain(store, { followThroughId: selectedNextStep.followThrough.id });
+assert.equal(traceChain.sourceEvent.id, approvalToResolve.sourceEventId);
+assert.equal(traceChain.workOrder.id, approvalToResolve.workOrderId);
+assert.ok(traceChain.approvals.some((approval) => approval.id === approvalToResolve.id));
+assert.ok(traceChain.nextStepProposals.some((proposal) => proposal.id === nextStepProposal.id));
+assert.ok(traceChain.followThroughs.some((record) => record.id === selectedNextStep.followThrough.id));
+assert.equal(traceChain.externalEffectSummary, "none");
+const readiness = buildSituationDemoReadinessReport(store);
+assert.equal(readiness.completedActCount, 5);
+assert.equal(readiness.activeAgentsShown, 6);
+assert.equal(readiness.realExternalEffects, "none");
 assert.equal(routedCommand.routedScenarioId, "confidential_upload_attempt");
 assert.equal(routedCommand.reused, true);
 assert.equal(store.situationDemoConductor.lastAct.actId, "confidential_upload_attempt");

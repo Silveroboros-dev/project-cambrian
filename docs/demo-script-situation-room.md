@@ -73,7 +73,9 @@ Expected result:
 - each act opens the relevant room with the `Cards` artifact pack selected;
 - each act first shows an `Event Source` panel naming the synthetic source, trigger, source actor, payload preview, expected agents, `sourceEventId`, and local-only adapter boundary;
 - each act updates `Created this act` with cards, work orders, approvals, and local log counts;
+- the `Trace Chain` panel updates from the active source event, work order, approval, proposal, or follow-through ID;
 - each act shows why a generic chatbot is weaker than the governed Cambrian agent loop;
+- the `Demo readiness` report shows act progress, six active agents, artifact counts, external effects, fixture boundary, and the next business ask;
 - all six active agents show participation;
 - clicking an active-agent row opens its details in a centered pop-up; clicking the same row again collapses it without pushing lower panels down;
 - cards and work orders are created;
@@ -82,6 +84,10 @@ Expected result:
 Say:
 
 > We are not asking a chatbot a question. We are walking through operating events. Each click starts with a visible synthetic event source, then creates governed artifacts: cards, work orders, approval gates, and logs. The contrast line shows what a generic chatbot would miss.
+
+Then point to `Trace Chain` and say:
+
+> The important part is the chain. We can start from a source event, work order, approval, proposal, or follow-through record and reconstruct what happened locally. That is the operating proof we need before real integrations.
 
 ### 3. Inspect Cards, Work Orders, Approvals
 
@@ -121,23 +127,26 @@ Say:
 
 ### 4. Approve Or Reject One Gate
 
-Use one individual `Approve` or `Reject` button, or click `Approve all demo-safe approvals`.
+Use one individual `Approve` or `Reject` button, or click `Approve all demo-safe approvals across rooms`.
 
 Show:
 
 - approval status updates;
+- `A-AUTH-001` remains the local gate/control agent for Treuhand draft review;
+- `A-TREU-001` creates the responsible next-step proposal for `review_before_send`;
 - related work order status updates;
 - approval card says local approval recorded only;
 - a responsible-agent next-step proposal appears in `Pending next steps`;
 - next-step choices are selected with `Select locally`;
 - selected follow-through shows a local record ID;
+- `Trace Chain` now includes approval, proposal, selected follow-through, and logs;
 - no email, access grant, or memory promotion occurred.
 
 Say:
 
 > Approval is not the end of the loop. After the human decides, the responsible agent proposes the next safe local step. The human selects it, and Cambrian records the consequence without sending emails, granting access, or changing production memory.
 
-Then click one `Select locally` choice or use `Select first pending next step locally`.
+Then click one `Select locally` choice or use `Select first pending next step across rooms locally`.
 
 Say:
 
@@ -164,6 +173,8 @@ Other supported local commands:
 Say:
 
 > These commands route to deterministic local scenarios. A system chat reply names the created work order, cards, and approval gates so it is obvious that the command produced artifacts.
+
+Also show that the reply names `workOrderId`, `sourceEventId`, card count, and approval count.
 
 ### 5a. Show Logs And Metrics
 
@@ -247,6 +258,8 @@ A viewer should understand:
 - the Situation Room is the main operating surface;
 - each active agent visibly did useful work;
 - agent work became typed cards and governed work orders;
+- the Trace Chain reconstructs source event -> work order -> cards -> approval -> proposal -> follow-through -> logs;
+- the Demo readiness report separates demo readiness from business proof;
 - chat is retained per thematic room;
 - dense state is packed into artifact views;
 - draft sending, access grants, and memory updates require human approval;
