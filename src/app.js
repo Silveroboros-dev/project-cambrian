@@ -45,10 +45,20 @@ import {
   summarizeSituationMetrics,
   summarizeSituationAgentParticipation
 } from "./situationRoom.js";
+import {
+  AFFORDABILITY_BANDS,
+  buildAdverseActionNotice,
+  buildOfferDraft,
+  consumerLoanChecklist,
+  runLoanUnderwriting,
+  smeLoanChecklist
+} from "./loanUnderwriting.js";
+import { consumerLoanCase, smeLoanCase } from "./loanSampleCases.js";
 
 let store = loadStore();
 
 const views = {
+  credit: document.querySelector("#credit-view"),
   workspace: document.querySelector("#workspace-view"),
   situation: document.querySelector("#situation-view"),
   context: document.querySelector("#context-view"),
@@ -77,6 +87,7 @@ function setView(viewName) {
 
 function render() {
   reconcileHarnessState();
+  renderCredit();
   renderWorkspace();
   renderSituationRoom();
   renderContext();
@@ -2632,4 +2643,217 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+// ---- Кредитный конвейер (bank pilot demo view) ----
+
+const CREDIT_CASES = [
+  { record: smeLoanCase, checklist: smeLoanChecklist, label: "МСБ · оборотный кредит" },
+  { record: consumerLoanCase, checklist: consumerLoanChecklist, label: "Физлицо · потребительский" }
+];
+
+const CREDIT_DECISION_LABELS = {
+  approve: "Одобрить",
+  refer: "На андеррайтинг",
+  request_docs: "Запросить документы",
+  decline: "Отклонить"
+};
+
+function creditActiveEntry() {
+  const id = store.creditPipeline.activeLoanCaseId;
+  return CREDIT_CASES.find((entry) => entry.record.id === id) || CREDIT_CASES[0];
+}
+
+function renderCredit() {
+  const entry = creditActiveEntry();
+  const caseRecord = entry.record;
+  const uw = runLoanUnderwriting(caseRecord, entry.checklist);
+  const audit = store.creditPipeline.audit[caseRecord.id] || [];
+  const decision = store.creditPipeline.decisions[caseRecord.id] || null;
+  const processed = audit.length > 0;
+  const band = uw.affordability.band;
+  const a = uw.affordability.inputs;
+  const requiredCount = uw.checklist.filter((i) => i.required).length;
+  const presentCount = uw.checklist.filter((i) => i.required && i.status === "complete").length;
+  const sensitive = uw.warnings.filter((w) => w.message.includes("чувствительные персональные данные"));
+
+  views.credit.innerHTML = `
+    <header class="credit-head">
+      <div>
+        <p class="eyebrow">A-CRED-001 · подготовка кредитного решения</p>
+        <h2>Кредитный конвейер</h2>
+        <p class="credit-sub">Агент готовит и объясняет — <strong>решение принимает человек</strong> — каждый шаг попадает в журнал аудита.</p>
+      </div>
+      <span class="credit-truth">синтетические данные · локально · ничего не отправляется</span>
+    </header>
+
+    <div class="credit-cases">
+      ${CREDIT_CASES.map((c) => `
+        <button class="credit-case-btn ${c.record.id === caseRecord.id ? "is-active" : ""}" data-credit-case="${c.record.id}">
+          <strong>${escapeHtml(c.label)}</strong>
+          <span>${escapeHtml(c.record.applicantName)}</span>
+        </button>`).join("")}
+      <div class="credit-actions">
+        ${processed
+          ? `<button class="credit-reset" data-credit-reset="1">↺ Сбросить кейс</button>`
+          : `<button class="credit-process" data-credit-process="1">▶ Обработать заявку агентом</button>`}
+      </div>
+    </div>
+
+    <ol class="credit-pipeline">
+      ${creditStage(1, "Заявка", chip("получена", "ok"), `
+        <div class="credit-kv"><span>Заявитель</span><strong>${escapeHtml(caseRecord.applicantName)}</strong></div>
+        <div class="credit-kv"><span>Продукт</span><strong>${escapeHtml(caseRecord.product || "кредит")}</strong></div>
+        <div class="credit-kv"><span>Запрос</span><strong>${formatSom(a.requestedAmount)} · ${a.termMonths ?? "—"} мес.</strong></div>
+        <p class="credit-src">Источник события: входящая кредитная заявка (локальный адаптер).</p>
+      `)}
+
+      ${creditStage(2, "KYC / AML — контроль", processed ? chip(sensitive.length ? "требует внимания" : "ок", sensitive.length ? "warn" : "ok") : chip("ожидает", "muted"),
+        processed ? `
+          <div class="credit-kv"><span>Санкции / PEP</span><strong>совпадений не найдено (синтетическая проверка)</strong></div>
+          ${sensitive.length ? sensitive.map((w) => `<p class="credit-flag">⚠ ${escapeHtml(w.message)}</p>`).join("") : `<p class="credit-ok">Чувствительные данные не обнаружены.</p>`}
+        ` : `<p class="empty-state">Нажмите «Обработать заявку», чтобы запустить контроль.</p>`)}
+
+      ${creditStage(3, "Комплектность документов", processed ? chip(`${presentCount}/${requiredCount}`, presentCount === requiredCount ? "ok" : "warn") : chip("ожидает", "muted"),
+        processed ? `<ul class="credit-checklist">${uw.checklist.map((i) => `<li class="${i.status}"><span>${i.status === "complete" ? "✓" : i.status === "open" ? "✗" : "•"}</span> ${escapeHtml(i.item)}${i.required ? "" : " <em>(необяз.)</em>"}</li>`).join("")}</ul>` : `<p class="empty-state">Ожидает обработки.</p>`)}
+
+      ${creditStage(4, "Индикатор доступности (DSTI) — «модель предлагает»", processed ? chip(uw.affordability.bandLabel, bandTone(band)) : chip("ожидает", "muted"),
+        processed ? `
+          <div class="credit-dsti ${bandTone(band)}">${a.dsti != null ? Math.round(a.dsti * 100) + "%" : "—"}</div>
+          <ul class="credit-reasons">${uw.affordability.reasons.map((r) => `<li>${escapeHtml(r.message)}${r.evidence_ids.length ? ` <span class="credit-ev">${r.evidence_ids.map(escapeHtml).join(", ")}</span>` : ""}</li>`).join("")}</ul>
+          <p class="credit-note">Детерминированный правило-ориентированный индикатор, не «чёрный ящик». Это не кредитное решение.</p>
+        ` : `<p class="empty-state">Ожидает обработки.</p>`)}
+
+      ${creditStage(5, "Решение — человек", decision ? chip("решение принято", "ok") : (processed ? chip("ждёт человека", "warn") : chip("ожидает", "muted")), creditDecisionBody(processed, decision))}
+
+      ${creditStage(6, "Результат", decision ? chip("сформирован (проект)", "ok") : chip("ожидает решения", "muted"),
+        decision ? `<pre class="credit-pre">${escapeHtml(creditOutcomeText(caseRecord, uw, decision))}</pre>` : `<p class="empty-state">Появится после решения человека.</p>`)}
+
+      ${creditStage(7, "Журнал аудита", chip(`${audit.length} записей`, audit.length ? "ok" : "muted"),
+        audit.length ? `<ol class="credit-audit">${audit.map((e) => `<li><span class="credit-audit-time">${escapeHtml(formatSomTime(e.at))}</span> <span class="credit-audit-actor">${escapeHtml(e.actor)}</span><br>${escapeHtml(e.message)}</li>`).join("")}</ol><p class="credit-note">Полная трассировка: заявка → контроль → индикатор → решение человека → результат. Локально, ничего не отправлено.</p>` : `<p class="empty-state">Журнал пуст.</p>`)}
+    </ol>
+  `;
+
+  views.credit.querySelectorAll("[data-credit-case]").forEach((b) => b.addEventListener("click", () => handleCreditSelectCase(b.dataset.creditCase)));
+  const processBtn = views.credit.querySelector("[data-credit-process]");
+  if (processBtn) processBtn.addEventListener("click", handleCreditProcess);
+  const resetBtn = views.credit.querySelector("[data-credit-reset]");
+  if (resetBtn) resetBtn.addEventListener("click", handleCreditReset);
+  views.credit.querySelectorAll("[data-credit-decision]").forEach((b) => b.addEventListener("click", () => handleCreditDecision(b.dataset.creditDecision)));
+}
+
+function creditDecisionBody(processed, decision) {
+  if (decision) {
+    return `
+      <div class="credit-decided">
+        <strong>${escapeHtml(CREDIT_DECISION_LABELS[decision.decision] || decision.decision)}</strong>
+        <span>${escapeHtml(decision.actor)} · ${escapeHtml(formatSomTime(decision.decidedAt))}</span>
+      </div>
+      <p class="credit-note">Решение вынесено человеком. Агент не одобряет, не отклоняет и не устанавливает цену.</p>`;
+  }
+  if (!processed) return `<p class="empty-state">Сначала обработайте заявку.</p>`;
+  return `
+    <p class="credit-gate-copy">Детерминированный шлюз: без выбора человека ничего дальше не происходит.</p>
+    <div class="credit-decision-btns">
+      <button class="credit-dbtn approve" data-credit-decision="approve">Одобрить</button>
+      <button class="credit-dbtn refer" data-credit-decision="refer">На андеррайтинг</button>
+      <button class="credit-dbtn docs" data-credit-decision="request_docs">Запросить документы</button>
+      <button class="credit-dbtn decline" data-credit-decision="decline">Отклонить</button>
+    </div>`;
+}
+
+function creditOutcomeText(caseRecord, uw, decision) {
+  const opts = { actor: decision.actor };
+  if (decision.decision === "approve") return buildOfferDraft(caseRecord, uw, opts);
+  if (decision.decision === "decline") return buildAdverseActionNotice(caseRecord, uw, opts);
+  if (decision.decision === "request_docs") {
+    const missing = uw.checklist.filter((i) => i.required && i.status === "open").map((i) => i.item);
+    return ["ПРОЕКТ ЗАПРОСА ДОКУМЕНТОВ (локально, не отправлено)", `Заявитель: ${caseRecord.applicantName}`, "Просим предоставить:", ...(missing.length ? missing.map((m) => `- ${m}`) : ["- (обязательные документы предоставлены)"]), "Решение отложено до получения документов."].join("\n");
+  }
+  return ["НАПРАВЛЕНО АНДЕРРАЙТЕРУ (локально)", `Заявитель: ${caseRecord.applicantName}`, `Показатель DSTI: ${uw.affordability.inputs.dsti != null ? Math.round(uw.affordability.inputs.dsti * 100) + "%" : "—"} (${uw.affordability.bandLabel}).`, "Кейс поставлен в очередь на рассмотрение андеррайтером — решение принимает человек."].join("\n");
+}
+
+function creditStage(num, title, chipHtml, body) {
+  return `
+    <li class="credit-stage">
+      <div class="credit-stage-num">${num}</div>
+      <div class="credit-stage-body">
+        <div class="credit-stage-head"><h3>${escapeHtml(title)}</h3>${chipHtml}</div>
+        <div class="credit-stage-content">${body}</div>
+      </div>
+    </li>`;
+}
+
+function chip(label, tone) {
+  return `<span class="credit-chip ${tone}">${escapeHtml(label)}</span>`;
+}
+
+function bandTone(band) {
+  if (band === AFFORDABILITY_BANDS.withinPolicy) return "ok";
+  if (band === AFFORDABILITY_BANDS.refer) return "warn";
+  if (band === AFFORDABILITY_BANDS.outsidePolicy) return "bad";
+  return "muted";
+}
+
+function formatSom(amount) {
+  if (amount == null) return "—";
+  return `${Math.round(amount).toLocaleString("ru-RU")} сум`;
+}
+
+function formatSomTime(value) {
+  return new Intl.DateTimeFormat("ru", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date(value));
+}
+
+function creditAudit(caseId, actor, message) {
+  store.creditPipeline.audit[caseId] ||= [];
+  store.creditPipeline.audit[caseId].push({ id: `caud_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, at: new Date().toISOString(), actor, message });
+}
+
+function handleCreditSelectCase(caseId) {
+  store.creditPipeline.activeLoanCaseId = caseId;
+  render();
+}
+
+function handleCreditProcess() {
+  const entry = creditActiveEntry();
+  const caseRecord = entry.record;
+  if ((store.creditPipeline.audit[caseRecord.id] || []).length) return render();
+  const uw = runLoanUnderwriting(caseRecord, entry.checklist);
+  const requiredCount = uw.checklist.filter((i) => i.required).length;
+  const presentCount = uw.checklist.filter((i) => i.required && i.status === "complete").length;
+  const sensitive = uw.warnings.filter((w) => w.message.includes("чувствительные персональные данные")).length;
+  const actor = "A-CRED-001 (агент)";
+  creditAudit(caseRecord.id, actor, "Заявка получена и зафиксирована как источник события.");
+  creditAudit(caseRecord.id, actor, `Контроль KYC/AML выполнен: санкции/PEP — без совпадений; помечено чувствительных данных: ${sensitive}.`);
+  creditAudit(caseRecord.id, actor, `Проверка комплектности: ${presentCount}/${requiredCount} обязательных документов.`);
+  creditAudit(caseRecord.id, actor, `Индикатор доступности рассчитан: DSTI ${uw.affordability.inputs.dsti != null ? Math.round(uw.affordability.inputs.dsti * 100) + "%" : "—"} — ${uw.affordability.bandLabel}. Решение за человеком.`);
+  addAuditEvent(store, caseRecord.id, "credit_pipeline_processed", `A-CRED-001 подготовил кейс ${caseRecord.id}.`);
+  render();
+}
+
+function handleCreditDecision(decisionKey) {
+  const entry = creditActiveEntry();
+  const caseRecord = entry.record;
+  if (!(store.creditPipeline.audit[caseRecord.id] || []).length) return render();
+  const actor = "Кредитный специалист (человек)";
+  store.creditPipeline.decisions[caseRecord.id] = { decision: decisionKey, actor, decidedAt: new Date().toISOString() };
+  creditAudit(caseRecord.id, actor, `Решение человека: ${CREDIT_DECISION_LABELS[decisionKey] || decisionKey}.`);
+  creditAudit(caseRecord.id, actor, "Сформирован результат (проект, локально — не отправлено).");
+  addAuditEvent(store, caseRecord.id, "credit_human_decision", `${caseRecord.id}: ${decisionKey} (человек).`);
+  render();
+}
+
+function handleCreditReset() {
+  const entry = creditActiveEntry();
+  store.creditPipeline.audit[entry.record.id] = [];
+  delete store.creditPipeline.decisions[entry.record.id];
+  render();
+}
+
 render();
+
+// Optional deep-link: `?view=<name>` opens a specific view on load (e.g. `?view=credit`
+// for a credit-first recording). No param → the default view from index.html is kept.
+// Opt-in only; ignores unknown view names.
+const requestedView = new URLSearchParams(window.location.search).get("view");
+if (requestedView && Object.prototype.hasOwnProperty.call(views, requestedView)) {
+  setView(requestedView);
+}

@@ -84,6 +84,9 @@ export function ensureStoreShape(store) {
   shaped.recommendations ||= [];
   shaped.reviewDecisions ||= [];
   shaped.auditEvents ||= [];
+  shaped.creditPipeline ||= { activeLoanCaseId: "case_loan_sme_001", decisions: {}, audit: {} };
+  shaped.creditPipeline.decisions ||= {};
+  shaped.creditPipeline.audit ||= {};
   shaped.cases ||= [];
   shaped.cases = shaped.cases.map(normalizeCaseRecordShape);
   shaped.agents = agentBacklog;
