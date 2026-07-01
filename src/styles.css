@@ -741,6 +741,34 @@ h4 {
   font-size: 0.8rem;
 }
 
+.next-step-card,
+.follow-through-record {
+  border-color: rgba(36, 89, 76, 0.3);
+  background: rgba(36, 89, 76, 0.05);
+}
+
+.next-step-choice {
+  display: grid;
+  gap: 6px;
+}
+
+.next-step-choice .secondary-button {
+  justify-self: start;
+}
+
+.selected-choice {
+  margin-top: 10px;
+  padding: 9px;
+  border: 1px solid rgba(36, 89, 76, 0.28);
+  border-radius: 6px;
+  background: #fff;
+}
+
+.selected-choice strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
 .compact-import-form {
   margin-top: 10px;
   grid-template-columns: minmax(0, 1fr) auto;

@@ -8,8 +8,10 @@ import {
   createSituationDemoSnapshot,
   importSituationDemoSnapshot,
   postSituationMessage,
+  resolveSituationApproval,
   runSituationDemoAct,
   runWeekTwoContinuityScenario,
+  selectFirstPendingNextStep,
   summarizeSituationMetrics,
   summarizeSituationAgentParticipation
 } from "../src/situationRoom.js";
@@ -76,6 +78,16 @@ assert.ok(store.workOrders.some((workOrder) => workOrder.status === "blocked"));
 assert.ok(store.approvalRequests.every((approval) => approval.externalEffect === "none"));
 assert.ok(agentParticipation.every((agent) => agent.totalOutputs > 0));
 assert.ok(store.cadenceNudges.some((nudge) => nudge.targetType === "weekly_control_audit"));
+const approvalToResolve = store.approvalRequests.find((approval) => approval.status === "pending" && approval.actionType === "review_before_send");
+assert.ok(approvalToResolve);
+resolveSituationApproval(store, approvalToResolve.id, "approved", "human_reviewer", "2026-06-30T00:09:00.000Z");
+const nextStepProposal = store.situationCards.find((card) => card.type === "agent_next_step_proposal" && card.sourceId === approvalToResolve.id);
+assert.ok(nextStepProposal);
+assert.equal(nextStepProposal.status, "pending");
+const selectedNextStep = selectFirstPendingNextStep(store, "human_reviewer", "2026-06-30T00:09:30.000Z");
+assert.ok(selectedNextStep.followThrough);
+assert.equal(selectedNextStep.followThrough.externalEffect, "none");
+assert.equal(store.situationFollowThroughs.length, 1);
 assert.equal(routedCommand.routedScenarioId, "confidential_upload_attempt");
 assert.equal(routedCommand.reused, true);
 assert.equal(store.situationDemoConductor.lastAct.actId, "confidential_upload_attempt");
@@ -83,6 +95,7 @@ assert.match(routedCommand.systemMessage.text, /no duplicate artifacts created/)
 assert.ok(situationMetrics.messages >= 3);
 assert.ok(situationMetrics.logs >= 8);
 assert.ok(situationMetrics.blockedWork >= 1);
+assert.ok(summarizeSituationMetrics(store).selectedFollowThroughs >= 1);
 assert.equal(situationMetrics.localStorageKey, "agentops-core-store-v1");
 
 const snapshot = createSituationDemoSnapshot(store, {
@@ -91,14 +104,17 @@ const snapshot = createSituationDemoSnapshot(store, {
   createdAt: "2026-06-30T00:20:00.000Z"
 });
 assert.equal(snapshot.payload.situationSourceEvents.length, store.situationSourceEvents.length);
+assert.equal(snapshot.payload.situationFollowThroughs.length, store.situationFollowThroughs.length);
 const snapshotTarget = createInitialStore();
 const importedSnapshot = importSituationDemoSnapshot(snapshotTarget, JSON.stringify(snapshot), "2026-07-07T00:00:00.000Z");
 assert.equal(importedSnapshot.valid, true, importedSnapshot.errors.join(" "));
 assert.equal(snapshotTarget.situationSourceEvents.length, store.situationSourceEvents.length);
+assert.equal(snapshotTarget.situationFollowThroughs.length, store.situationFollowThroughs.length);
 const weekTwo = runWeekTwoContinuityScenario(snapshotTarget, "2026-07-07T00:10:00.000Z");
 assert.equal(weekTwo.scenarioWeek, 2);
 assert.ok(snapshotTarget.situationCards.some((card) => card.type === "week_two_prior_log_review"));
 assert.ok(snapshotTarget.situationCards.some((card) => card.summary.includes("source event")));
+assert.ok(snapshotTarget.situationCards.some((card) => card.summary.includes("local follow-through decision")));
 
 const validationResults = sampleCaseImports.map((sample) => runValidationSample(sample));
 assert.equal(validationResults.length >= 2, true);

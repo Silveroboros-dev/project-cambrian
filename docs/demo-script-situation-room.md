@@ -95,6 +95,7 @@ Open the relevant rooms:
 Use `Artifact packs` rather than scrolling a single timeline:
 
 - `Agent cards`;
+- `Next steps`;
 - `Events`;
 - `Work orders`;
 - `Approvals`;
@@ -127,11 +128,20 @@ Show:
 - approval status updates;
 - related work order status updates;
 - approval card says local approval recorded only;
+- a responsible-agent next-step proposal appears in `Pending next steps`;
+- next-step choices are selected with `Select locally`;
+- selected follow-through shows a local record ID;
 - no email, access grant, or memory promotion occurred.
 
 Say:
 
-> Approval records the human decision inside the local demo. It does not execute the sensitive action.
+> Approval is not the end of the loop. After the human decides, the responsible agent proposes the next safe local step. The human selects it, and Cambrian records the consequence without sending emails, granting access, or changing production memory.
+
+Then click one `Select locally` choice or use `Select first pending next step locally`.
+
+Say:
+
+> This is governed follow-through. The selected consequence is an auditable local record, not an external action.
 
 ### 5. Use Agent Tags
 
@@ -163,7 +173,7 @@ Show:
 
 - logs are room-scoped;
 - every log has `logId`, `roomId`, artifact ID, and timestamp;
-- Metrics shows Situation Room messages, cards, work orders, reviewed gates, review actions, blocked work, and logs.
+- Metrics shows Situation Room messages, cards, work orders, reviewed gates, pending next steps, selected follow-through, review actions, blocked work, and logs.
 
 Say:
 
@@ -220,9 +230,9 @@ One week later:
 
 Expected result:
 
-- prior room messages, source events, cards, work orders, approvals, validation records, and local logs are restored;
+- prior room messages, source events, cards, work orders, approvals, next-step selections, follow-through records, validation records, and local logs are restored;
 - `A-CAD-001` creates a week-two continuity work order;
-- the week-two cards summarize prior source-event count, prior log count, unresolved approvals, blocked work, and next business ask;
+- the week-two cards summarize prior source-event count, prior log count, prior local follow-through decisions, unresolved approvals, blocked work, and next business ask;
 - no database, backend, or external connector is used.
 
 Say:
@@ -240,6 +250,8 @@ A viewer should understand:
 - chat is retained per thematic room;
 - dense state is packed into artifact views;
 - draft sending, access grants, and memory updates require human approval;
+- human approval/rejection creates responsible-agent next-step proposals;
+- selected next steps create local follow-through records only;
 - review actions update local Situation metrics;
 - logs and timestamps make the local sequence reviewable;
 - demo state can be carried to part 2 with a versioned local snapshot;

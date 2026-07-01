@@ -9,6 +9,7 @@ import {
   SITUATION_ARTIFACT_PACKS,
   SITUATION_SNAPSHOT_VERSION,
   SITUATION_ROOM_SCENARIOS,
+  appendTreuhandReviewNextStepProposal,
   createSituationDemoSnapshot,
   exportSituationDemoSnapshot,
   importSituationDemoSnapshot,
@@ -18,6 +19,8 @@ import {
   runSituationDemoAct,
   runGuidedSituationDemo,
   runWeekTwoContinuityScenario,
+  selectAgentNextStep,
+  selectFirstPendingNextStep,
   setSituationArtifactPack,
   summarizeSituationMetrics,
   summarizeSituationAgentParticipation,
@@ -32,7 +35,7 @@ test("Situation Room contract and UI entry point exist", async () => {
   const styles = await readFile("src/styles.css", "utf8");
   const situationRoomSource = await readFile("src/situationRoom.js", "utf8");
 
-  for (let index = 1; index <= 31; index += 1) {
+  for (let index = 1; index <= 35; index += 1) {
     assert.match(contract, new RegExp(`AC-SR-${index}:`));
   }
 
@@ -43,8 +46,11 @@ test("Situation Room contract and UI entry point exist", async () => {
   assert.match(contract, /No External Side Effects/);
   assert.match(contract, /Demo Conductor/);
   assert.match(contract, /Source Event Model/);
+  assert.match(contract, /Human Review Consequence Model/);
+  assert.match(contract, /No External Execution After Approval/);
   assert.match(contract, /synthetic_local/);
   assert.match(demoScript, /Event Source/);
+  assert.match(demoScript, /Approval is not the end of the loop/);
   assert.match(demoScript, /Demo conductor|Reset demo state/);
   assert.match(demoScript, /3-5 anonymized Treuhand cases/);
   assert.match(html, /Situation Room/);
@@ -66,6 +72,9 @@ test("Situation Room contract and UI entry point exist", async () => {
   assert.match(app, /packed-event/);
   assert.match(app, /packed-log/);
   assert.match(app, /Event Source/);
+  assert.match(app, /Pending next steps/);
+  assert.match(app, /Select locally/);
+  assert.match(app, /selectAgentNextStep/);
   assert.match(app, /source-detail-grid/);
   assert.match(app, /sourceEventId/);
   assert.match(app, /Situation Room metrics/);
@@ -82,6 +91,8 @@ test("Situation Room contract and UI entry point exist", async () => {
   assert.doesNotMatch(app, /<details class="agent-status-card"/);
   assert.match(situationRoomSource, /runSituationDemoAct/);
   assert.match(situationRoomSource, /situationSourceEvents/);
+  assert.match(situationRoomSource, /situationFollowThroughs/);
+  assert.match(situationRoomSource, /selectAgentNextStep/);
   assert.match(situationRoomSource, /source_event_received/);
   assert.match(situationRoomSource, /actRecordsById/);
   assert.match(situationRoomSource, /manual_tag_reused_demo_act/);
@@ -97,8 +108,9 @@ test("initial store seeds Situation Room rooms and supported agent tags", () => 
   assert.equal(store.expandedSituationAgentId, null);
   assert.deepEqual(store.situationDemoConductor.completedActIds, []);
   assert.deepEqual(store.situationSourceEvents, []);
+  assert.deepEqual(store.situationFollowThroughs, []);
   assert.equal(ACTIVE_SITUATION_AGENTS.length, 6);
-  assert.deepEqual(SITUATION_ARTIFACT_PACKS.map((pack) => pack.id), ["cards", "events", "work_orders", "approvals", "logs"]);
+  assert.deepEqual(SITUATION_ARTIFACT_PACKS.map((pack) => pack.id), ["cards", "next_steps", "events", "work_orders", "approvals", "logs"]);
   assert.equal(store.activeSituationPack, "cards");
   assert.ok(store.situationEventLog.some((log) => log.storage.includes("localStorage")));
   assert.deepEqual(Object.values(AGENT_TAGS), [
@@ -199,7 +211,11 @@ test("guided demo runs all five scenarios and creates a recap from clean local s
   assert.equal(report.noExternalSideEffects, true);
   assert.equal(report.truthLabel, "synthetic_local");
   assert.match(report.recapSummary, /6 active agents shown/);
-  assert.match(report.recapSummary, /no external side effects/);
+  assert.match(report.recapSummary, /pending next-step proposal/);
+  assert.match(report.recapSummary, /selected follow-through/);
+  assert.match(report.recapSummary, /no external actions executed/);
+  assert.equal(report.pendingNextStepProposals, 0);
+  assert.equal(report.selectedFollowThroughs, 0);
   assert.equal(store.situationSourceEvents.length, GUIDED_DEMO_SCENARIO_ORDER.length);
   assert.equal(new Set(store.situationSourceEvents.map((event) => event.scenarioId)).size, GUIDED_DEMO_SCENARIO_ORDER.length);
   assert.equal(store.activeSituationRoomId, "room_general_ops");
@@ -409,6 +425,7 @@ test("human approval gate resolves approval without granting hidden autonomy", (
   assert.equal(approval.status, "pending");
   const resolved = resolveSituationApproval(store, approval.id, "approved", "human_boss", "2026-06-30T00:01:00.000Z");
   const workOrder = store.workOrders.find((item) => item.id === approval.workOrderId);
+  const proposal = store.situationCards.find((card) => card.type === "agent_next_step_proposal" && card.sourceId === approval.id);
   const afterMetrics = summarizeSituationMetrics(store);
 
   assert.equal(resolved.status, "approved");
@@ -426,10 +443,138 @@ test("human approval gate resolves approval without granting hidden autonomy", (
     )
   );
   assert.ok(store.situationCards.some((card) => card.approvalId === approval.id && card.approvalStatus === "approved"));
-  assert.ok(store.situationCards.some((card) => card.type === "agent_next_step_proposal" && card.sourceId === approval.id && card.sourceEventId === approval.sourceEventId));
+  assert.equal(proposal.status, "pending");
+  assert.equal(proposal.agentId, "A-AUTH-001");
+  assert.equal(proposal.sourceType, "approval");
+  assert.equal(proposal.sourceEventId, approval.sourceEventId);
+  assert.equal(proposal.workOrderId, approval.workOrderId);
+  assert.ok(proposal.choices.every((choice) => choice.localConsequenceType));
+  assert.ok(proposal.choices.some((choice) => choice.label === "Record local least-privilege plan"));
+  assert.equal(store.activeSituationPack, "next_steps");
   assert.equal(afterMetrics.reviewedApprovals, beforeMetrics.reviewedApprovals + 1);
   assert.equal(afterMetrics.reviewActions, beforeMetrics.reviewActions + 1);
+  assert.equal(afterMetrics.pendingNextSteps, 1);
   assert.ok(afterMetrics.logs > beforeMetrics.logs);
+});
+
+test("approval next-step choices are decision-aware across responsible agents", () => {
+  const approvedDraft = resolveApprovalAndFindProposal("inbound_email_intake", "review_before_send", "approved");
+  const rejectedDraft = resolveApprovalAndFindProposal("inbound_email_intake", "review_before_send", "rejected");
+  const approvedAccess = resolveApprovalAndFindProposal("employee_onboarding", "grant_read_only_and_draft_access", "approved");
+  const rejectedAccess = resolveApprovalAndFindProposal("employee_onboarding", "grant_read_only_and_draft_access", "rejected");
+  const approvedMemory = resolveApprovalAndFindProposal("agent_handoff_gap", "approve_operating_memory_candidate", "approved");
+  const rejectedMemory = resolveApprovalAndFindProposal("agent_handoff_gap", "approve_operating_memory_candidate", "rejected");
+
+  assert.deepEqual(approvedDraft.proposal.choices.map((choice) => choice.label), [
+    "Inspect draft before use",
+    "Keep draft blocked for edit",
+    "Move to Validation capture"
+  ]);
+  assert.deepEqual(rejectedDraft.proposal.choices.map((choice) => choice.label), [
+    "Mark draft not usable",
+    "Request revised draft",
+    "Ask for missing client documents"
+  ]);
+  assert.ok(approvedAccess.proposal.choices.some((choice) => choice.label === "Record local least-privilege plan"));
+  assert.ok(rejectedAccess.proposal.choices.some((choice) => choice.label === "Prepare narrower access request"));
+  assert.equal(approvedAccess.proposal.agentId, "A-AUTH-001");
+  assert.ok(approvedMemory.proposal.choices.some((choice) => choice.label === "Keep candidate in local memory backlog"));
+  assert.ok(rejectedMemory.proposal.choices.some((choice) => choice.label === "Archive candidate"));
+  assert.equal(approvedMemory.proposal.agentId, "A-GAP-001");
+  for (const { proposal } of [approvedDraft, rejectedDraft, approvedAccess, rejectedAccess, approvedMemory, rejectedMemory]) {
+    assert.equal(proposal.externalEffect, "none");
+    assert.equal(proposal.truthLabel, "synthetic_local");
+    assert.ok(proposal.choices.every((choice) => choice.localConsequenceType));
+    assert.doesNotMatch(nextStepText(proposal), /send email|grant access|promote memory|slack|gmail|drive|browser action|llm execution|execute/i);
+  }
+});
+
+test("selecting a next-step choice records local follow-through and preserves trace chain", () => {
+  const { store, approval, proposal } = resolveApprovalAndFindProposal("inbound_email_intake", "review_before_send", "approved");
+  const choice = proposal.choices.find((item) => item.id === "inspect_draft_before_use");
+  const beforeMessages = store.roomMessages.length;
+  const beforeLogs = store.situationEventLog.length;
+
+  assert.throws(
+    () => selectAgentNextStep(store, proposal.id, "not_a_choice", "human_reviewer", "2026-06-30T00:02:00.000Z"),
+    /Unknown next-step choice/
+  );
+
+  const result = selectAgentNextStep(store, proposal.id, choice.id, "human_reviewer", "2026-06-30T00:02:00.000Z");
+  const selectedProposal = store.situationCards.find((card) => card.id === proposal.id);
+  const followThrough = result.followThrough;
+  const followThroughCard = store.situationCards.find((card) => card.type === "local_follow_through_recorded" && card.followThroughId === followThrough.id);
+
+  assert.equal(selectedProposal.status, "selected");
+  assert.equal(selectedProposal.selectedChoiceId, choice.id);
+  assert.equal(selectedProposal.selectedBy, "human_reviewer");
+  assert.equal(selectedProposal.followThroughId, followThrough.id);
+  assert.equal(followThrough.proposalCardId, proposal.id);
+  assert.equal(followThrough.sourceType, "approval");
+  assert.equal(followThrough.sourceId, approval.id);
+  assert.equal(followThrough.sourceEventId, approval.sourceEventId);
+  assert.equal(followThrough.workOrderId, approval.workOrderId);
+  assert.equal(followThrough.caseId, approval.caseId);
+  assert.equal(followThrough.agentId, proposal.agentId);
+  assert.equal(followThrough.traceId, approval.traceId);
+  assert.equal(followThrough.externalEffect, "none");
+  assert.equal(followThrough.status, "recorded_local_only");
+  assert.ok(followThroughCard);
+  assert.equal(followThroughCard.sourceEventId, approval.sourceEventId);
+  assert.equal(store.roomMessages.length, beforeMessages + 1);
+  assert.ok(store.roomMessages.some((message) => message.text.includes(followThrough.id)));
+  assert.equal(store.situationEventLog.length, beforeLogs + 2);
+  assert.ok(store.situationEventLog.some((log) => log.eventType === "local_follow_through_recorded" && log.artifactId === followThrough.id && log.sourceEventId === approval.sourceEventId));
+  assert.equal(store.situationLastAction.followThroughId, followThrough.id);
+  assert.equal(store.activeSituationPack, "next_steps");
+  assert.throws(
+    () => selectAgentNextStep(store, proposal.id, choice.id, "human_reviewer", "2026-06-30T00:03:00.000Z"),
+    /already selected/
+  );
+});
+
+test("demo helper selects the first pending next step locally", () => {
+  const { store, proposal } = resolveApprovalAndFindProposal("employee_onboarding", "grant_read_only_and_draft_access", "approved");
+
+  const result = selectFirstPendingNextStep(store, "human_reviewer", "2026-06-30T00:03:00.000Z");
+
+  assert.ok(result.followThrough);
+  assert.equal(result.proposal.id, proposal.id);
+  assert.equal(store.situationFollowThroughs.length, 1);
+  assert.equal(store.situationCards.find((card) => card.id === proposal.id).status, "selected");
+  assert.equal(selectFirstPendingNextStep(store, "human_reviewer", "2026-06-30T00:04:00.000Z"), null);
+});
+
+test("Treuhand review decisions create A-TREU next-step proposals", () => {
+  const expectedLabels = {
+    approve: ["Inspect evidence links", "Keep draft in local review", "Capture validation feedback"],
+    edit: ["Revise draft locally", "Add reviewer note", "Re-run after checklist update"],
+    reject: ["Mark recommendation not usable", "Inspect false-positive cause", "Create gap candidate for A-GAP review"]
+  };
+
+  for (const [decision, labels] of Object.entries(expectedLabels)) {
+    const store = createInitialStore();
+    runSituationScenario(store, "inbound_email_intake", "2026-06-30T00:00:00.000Z");
+    const recommendation = store.recommendations.find((item) => item.sourceEventId);
+    const reviewDecision = {
+      id: `review_${decision}`,
+      recommendationId: recommendation.id,
+      caseId: recommendation.caseId,
+      decision,
+      comment: `${decision} locally`,
+      createdAt: "2026-06-30T00:01:00.000Z"
+    };
+
+    const proposal = appendTreuhandReviewNextStepProposal(store, { recommendation, reviewDecision, createdAt: reviewDecision.createdAt });
+
+    assert.equal(proposal.agentId, "A-TREU-001");
+    assert.equal(proposal.sourceType, "review_decision");
+    assert.equal(proposal.sourceId, reviewDecision.id);
+    assert.equal(proposal.sourceEventId, recommendation.sourceEventId);
+    assert.equal(proposal.workOrderId, recommendation.workOrderId);
+    assert.equal(proposal.traceId, recommendation.traceId);
+    assert.deepEqual(proposal.choices.map((choice) => choice.label), labels);
+  }
 });
 
 test("approve all helper resolves demo-safe approvals locally", () => {
@@ -442,6 +587,7 @@ test("approve all helper resolves demo-safe approvals locally", () => {
   assert.equal(store.approvalRequests.every((approval) => approval.status === "approved"), true);
   assert.equal(store.workOrders.filter((workOrder) => workOrder.status === "local_approval_recorded").length, 3);
   assert.ok(store.situationCards.filter((card) => card.type === "human_approval").length >= 3);
+  assert.equal(store.situationCards.filter((card) => card.type === "agent_next_step_proposal" && card.status === "pending").length, 3);
 });
 
 test("situation metrics and timestamps cover current local artifacts", () => {
@@ -454,6 +600,8 @@ test("situation metrics and timestamps cover current local artifacts", () => {
   assert.equal(metrics.workOrders, store.workOrders.length);
   assert.equal(metrics.pendingApprovals, 3);
   assert.equal(metrics.blockedWork, 1);
+  assert.equal(metrics.pendingNextSteps, 0);
+  assert.equal(metrics.selectedFollowThroughs, 0);
   assert.equal(metrics.logs, store.situationEventLog.length);
   assert.equal(metrics.localStorageKey, "agentops-core-store-v1");
   assert.ok(store.situationCards.every((card) => card.createdAt));
@@ -466,6 +614,7 @@ test("demo snapshots export and import versioned local continuity state", () => 
   const source = createInitialStore();
   runGuidedSituationDemo(source, "2026-06-30T00:00:00.000Z");
   resolveAllDemoSafeApprovals(source, "human_reviewer", "2026-06-30T00:10:00.000Z");
+  const selected = selectFirstPendingNextStep(source, "human_reviewer", "2026-06-30T00:15:00.000Z");
   const { snapshot, snapshotJson } = exportSituationDemoSnapshot(source, {
     sessionId: "session_demo_part_1",
     scenarioWeek: 1,
@@ -476,7 +625,10 @@ test("demo snapshots export and import versioned local continuity state", () => 
   assert.equal(snapshot.sessionId, "session_demo_part_1");
   assert.equal(snapshot.scenarioWeek, 1);
   assert.equal(snapshot.payload.situationSourceEvents.length, source.situationSourceEvents.length);
+  assert.equal(snapshot.payload.situationFollowThroughs.length, source.situationFollowThroughs.length);
+  assert.ok(snapshot.payload.situationCards.some((card) => card.id === selected.proposal.id && card.status === "selected"));
   assert.ok(snapshot.payload.situationSourceEvents.length > 0);
+  assert.ok(snapshot.payload.situationFollowThroughs.length > 0);
   assert.ok(snapshot.payload.situationEventLog.length > 0);
   assert.ok(snapshot.payload.roomMessages.length > 0);
   assert.equal(source.situationSnapshotStatus.status, "ready");
@@ -490,6 +642,8 @@ test("demo snapshots export and import versioned local continuity state", () => 
   assert.equal(target.situationCards.length, source.situationCards.length);
   assert.equal(target.workOrders.length, source.workOrders.length);
   assert.equal(target.situationSourceEvents.length, source.situationSourceEvents.length);
+  assert.equal(target.situationFollowThroughs.length, source.situationFollowThroughs.length);
+  assert.ok(target.situationCards.some((card) => card.id === selected.proposal.id && card.status === "selected"));
   assert.ok(target.situationEventLog.some((log) => log.eventType === "demo_snapshot_imported"));
   assert.equal(importSituationDemoSnapshot(target, "{").valid, false);
   assert.equal(importSituationDemoSnapshot(target, { snapshotVersion: "wrong" }).valid, false);
@@ -498,8 +652,11 @@ test("demo snapshots export and import versioned local continuity state", () => 
 test("week-two continuity scenario uses prior logs without backend persistence", () => {
   const store = createInitialStore();
   runGuidedSituationDemo(store, "2026-06-30T00:00:00.000Z");
+  resolveAllDemoSafeApprovals(store, "human_reviewer", "2026-06-30T00:10:00.000Z");
+  selectFirstPendingNextStep(store, "human_reviewer", "2026-06-30T00:15:00.000Z");
   const priorLogCount = store.situationEventLog.length;
   const priorSourceEventCount = store.situationSourceEvents.length;
+  const priorFollowThroughCount = store.situationFollowThroughs.length;
 
   const result = runWeekTwoContinuityScenario(store, "2026-07-07T00:00:00.000Z");
 
@@ -508,7 +665,24 @@ test("week-two continuity scenario uses prior logs without backend persistence",
   assert.ok(result.cards.some((card) => card.type === "week_two_prior_log_review"));
   assert.ok(result.cards.some((card) => card.summary.includes(`${priorSourceEventCount} source event`)));
   assert.ok(result.cards.some((card) => card.summary.includes(`${priorLogCount} prior local log record`)));
+  assert.ok(result.cards.some((card) => card.summary.includes(`${priorFollowThroughCount} local follow-through decision`)));
   assert.ok(store.situationEventLog.some((log) => log.eventType === "week_two_continuity_run"));
   assert.equal(store.activeSituationRoomId, "room_weekly_control");
   assert.match(store.situationLastAction.summary, /source event/);
+  assert.match(store.situationLastAction.summary, /follow-through/);
 });
+
+function resolveApprovalAndFindProposal(scenarioId, actionType, decision) {
+  const store = createInitialStore();
+  runSituationScenario(store, scenarioId, "2026-06-30T00:00:00.000Z");
+  const approval = store.approvalRequests.find((item) => item.actionType === actionType);
+  assert.ok(approval, `${actionType} approval exists`);
+  resolveSituationApproval(store, approval.id, decision, "human_reviewer", "2026-06-30T00:01:00.000Z");
+  const proposal = store.situationCards.find((card) => card.type === "agent_next_step_proposal" && card.sourceId === approval.id);
+  assert.ok(proposal, `${actionType} proposal exists`);
+  return { store, approval, proposal };
+}
+
+function nextStepText(proposal) {
+  return proposal.choices.map((choice) => `${choice.label} ${choice.description}`).join(" ");
+}

@@ -159,6 +159,7 @@ export const GUIDED_DEMO_SCENARIO_ORDER = [
 
 export const SITUATION_ARTIFACT_PACKS = [
   { id: "cards", label: "Agent cards" },
+  { id: "next_steps", label: "Next steps" },
   { id: "events", label: "Events" },
   { id: "work_orders", label: "Work orders" },
   { id: "approvals", label: "Approvals" },
@@ -261,6 +262,7 @@ export function createInitialSituationRoomState(caseId = "case_demo_march_2026",
     situationCards: [],
     approvalRequests: [],
     situationSourceEvents: [],
+    situationFollowThroughs: [],
     selectedSituationCardId: null,
     expandedSituationAgentId: null,
     situationDemoConductor: createInitialDemoConductor(createdAt),
@@ -620,9 +622,11 @@ export function resolveSituationApproval(
     choices: nextStepChoicesForApproval(approval),
     createdAt: offsetIso(createdAt, 1)
   });
+  approval.nextStepProposalId = proposal.id;
   appendSystemRoomMessage(store, {
     roomId: approval.roomId,
     text: `${approval.requestedByAgentId} proposed next steps after ${approval.actionType}: ${proposal.id}.`,
+    sourceEventId: approval.sourceEventId || null,
     createdAt: offsetIso(createdAt, 2)
   });
   appendSituationLog(store, {
@@ -631,14 +635,18 @@ export function resolveSituationApproval(
     artifactType: "approval",
     artifactId: approval.id,
     actorId,
+    sourceEventId: approval.sourceEventId || null,
     summary: `${approval.actionType} ${approval.status}; next-step proposal ${proposal.id} created.`,
     createdAt
   });
+  store.activeSituationRoomId = approval.roomId;
+  store.activeSituationPack = "next_steps";
   store.situationLastAction = {
     status: "approval_resolved",
     roomId: approval.roomId,
     approvalId: approval.id,
     workOrderId: approval.workOrderId,
+    sourceEventId: approval.sourceEventId || null,
     cardIds: [card.id, proposal.id],
     summary: `Approval ${approval.status}; local-only next-step proposal created.`,
     createdAt
@@ -665,6 +673,7 @@ export function resetSituationRoomDemoState(store, createdAt = new Date().toISOS
   store.situationCards = [];
   store.approvalRequests = [];
   store.situationSourceEvents = [];
+  store.situationFollowThroughs = [];
   store.selectedSituationCardId = null;
   store.expandedSituationAgentId = null;
   store.situationDemoConductor = createInitialDemoConductor(createdAt);
@@ -695,7 +704,7 @@ export function runGuidedSituationDemo(store, createdAt = new Date().toISOString
     agentId: "system",
     caseId: activeCaseFromStore(store)?.id || null,
     title: "Guided demo recap",
-    summary: `6 active agents shown; ${reportBeforeRecap.cardsCreated + 1} cards created; ${reportBeforeRecap.workOrdersCreated} work orders; ${reportBeforeRecap.pendingApprovals} pending approvals; no external side effects; synthetic/local only.`,
+    summary: `6 active agents shown; ${reportBeforeRecap.cardsCreated + 1} cards created; ${reportBeforeRecap.workOrdersCreated} work orders; ${reportBeforeRecap.pendingApprovals} pending approvals; ${reportBeforeRecap.pendingNextStepProposals} pending next-step proposal(s); ${reportBeforeRecap.selectedFollowThroughs} selected follow-through(s); all consequences local-only; no external actions executed; synthetic/local only.`,
     severity: "info",
     traceId,
     createdAt: offsetIso(createdAt, GUIDED_DEMO_SCENARIO_ORDER.length + 1)
@@ -730,7 +739,7 @@ export function runGuidedSituationDemo(store, createdAt = new Date().toISOString
   };
   store.situationLastAction = {
     status: "guided_demo_completed",
-    summary: `Guided demo created ${store.situationDemoReport.cardsCreated} cards, ${store.situationDemoReport.workOrdersCreated} work orders, and ${store.situationDemoReport.pendingApprovals} pending approvals. Opened General Ops / Cards; local-only boundary preserved.`,
+    summary: `Guided demo created ${store.situationDemoReport.cardsCreated} cards, ${store.situationDemoReport.workOrdersCreated} work orders, ${store.situationDemoReport.pendingApprovals} pending approvals, ${store.situationDemoReport.pendingNextStepProposals} pending next-step proposal(s), and ${store.situationDemoReport.selectedFollowThroughs} selected follow-through(s). Opened General Ops / Cards; local-only boundary preserved.`,
     roomId: "room_general_ops",
     cardIds: [recap.id],
     createdAt: offsetIso(createdAt, GUIDED_DEMO_SCENARIO_ORDER.length + 3)
@@ -747,6 +756,8 @@ export function summarizeSituationRoomDemo(store) {
     workOrdersCreated: store.workOrders.length,
     pendingApprovals: store.approvalRequests.filter((approval) => approval.status === "pending").length,
     approvalsCreated: store.approvalRequests.length,
+    pendingNextStepProposals: store.situationCards.filter((card) => card.type === "agent_next_step_proposal" && card.status === "pending").length,
+    selectedFollowThroughs: store.situationFollowThroughs.length,
     agentParticipation,
     noExternalSideEffects: true,
     truthLabel: SITUATION_TRUTH_LABEL
@@ -783,6 +794,7 @@ export function createSituationDemoSnapshot(
       situationCards: store.situationCards,
       approvalRequests: store.approvalRequests,
       situationSourceEvents: store.situationSourceEvents,
+      situationFollowThroughs: store.situationFollowThroughs,
       selectedSituationCardId: store.selectedSituationCardId || null,
       situationDemoConductor: store.situationDemoConductor || createInitialDemoConductor(createdAt),
       situationDemoReport: store.situationDemoReport || null,
@@ -856,6 +868,7 @@ export function importSituationDemoSnapshot(store, snapshotInput, importedAt = n
   store.situationCards = cloneArray(payload.situationCards);
   store.approvalRequests = cloneArray(payload.approvalRequests);
   store.situationSourceEvents = cloneArray(payload.situationSourceEvents || []);
+  store.situationFollowThroughs = cloneArray(payload.situationFollowThroughs || []);
   store.selectedSituationCardId = payload.selectedSituationCardId || null;
   store.expandedSituationAgentId = null;
   store.situationDemoConductor = payload.situationDemoConductor || createInitialDemoConductor(importedAt);
@@ -925,6 +938,9 @@ export function validateSituationDemoSnapshot(snapshot) {
   if (payload.situationSourceEvents && !Array.isArray(payload.situationSourceEvents)) {
     errors.push("payload.situationSourceEvents must be an array.");
   }
+  if (payload.situationFollowThroughs && !Array.isArray(payload.situationFollowThroughs)) {
+    errors.push("payload.situationFollowThroughs must be an array.");
+  }
   return { valid: errors.length === 0, errors };
 }
 
@@ -933,6 +949,7 @@ export function summarizeSituationMetrics(store) {
   const reviewedApprovals = store.approvalRequests.filter((approval) => approval.status !== "pending");
   const pendingApprovals = store.approvalRequests.filter((approval) => approval.status === "pending");
   const blockedWork = store.workOrders.filter((workOrder) => workOrder.status === "blocked");
+  const pendingNextSteps = store.situationCards.filter((card) => card.type === "agent_next_step_proposal" && card.status === "pending");
   const reviewActions = reviewedApprovals.length + (store.reviewDecisions?.length || 0);
   return {
     rooms: store.situationRooms.length,
@@ -943,6 +960,8 @@ export function summarizeSituationMetrics(store) {
     reviewedApprovals: reviewedApprovals.length,
     blockedWork: blockedWork.length,
     reviewActions,
+    pendingNextSteps: pendingNextSteps.length,
+    selectedFollowThroughs: store.situationFollowThroughs.length,
     logs: store.situationEventLog.length,
     lastAction: store.situationLastAction?.summary || "No Situation Room action yet.",
     localStorageKey: "agentops-core-store-v1"
@@ -954,6 +973,7 @@ export function runWeekTwoContinuityScenario(store, createdAt = new Date().toISO
   const caseRecord = activeCaseFromStore(store);
   const priorLogs = store.situationEventLog.length;
   const priorSourceEvents = store.situationSourceEvents.length;
+  const priorFollowThroughs = store.situationFollowThroughs.length;
   const priorApprovals = store.approvalRequests.length;
   const pendingApprovals = store.approvalRequests.filter((approval) => approval.status === "pending");
   const blockedWorkOrders = store.workOrders.filter((workOrder) => workOrder.status === "blocked");
@@ -979,7 +999,7 @@ export function runWeekTwoContinuityScenario(store, createdAt = new Date().toISO
       agentId: "A-CAD-001",
       caseId: caseRecord?.id || null,
       title: "Week 2 prior log review",
-      summary: `A-CAD reviewed ${priorSourceEvents} source event(s), ${priorLogs} prior local log record(s), ${priorApprovals} approval gate(s), and ${store.workOrders.length} work order(s).`,
+      summary: `A-CAD reviewed ${priorSourceEvents} source event(s), ${priorLogs} prior local log record(s), ${priorApprovals} approval gate(s), ${priorFollowThroughs} local follow-through decision(s), and ${store.workOrders.length} work order(s).`,
       severity: "info",
       workOrderId: workOrder.id,
       traceId,
@@ -1039,12 +1059,12 @@ export function runWeekTwoContinuityScenario(store, createdAt = new Date().toISO
     roomId: "room_weekly_control",
     workOrderId: workOrder.id,
     cardIds: cards.map((card) => card.id),
-    summary: `Week ${scenarioWeek} continuity scenario reviewed ${priorSourceEvents} source event(s) and ${priorLogs} prior log record(s).`,
+    summary: `Week ${scenarioWeek} continuity scenario reviewed ${priorSourceEvents} source event(s), ${priorLogs} prior log record(s), and ${priorFollowThroughs} local follow-through decision(s).`,
     createdAt
   };
   appendSystemRoomMessage(store, {
     roomId: "room_weekly_control",
-    text: `Week ${scenarioWeek} continuity scenario reviewed ${priorSourceEvents} source event(s), ${priorLogs} prior log record(s), and created work order ${workOrder.id}.`,
+    text: `Week ${scenarioWeek} continuity scenario reviewed ${priorSourceEvents} source event(s), ${priorLogs} prior log record(s), ${priorFollowThroughs} local follow-through decision(s), and created work order ${workOrder.id}.`,
     createdAt: offsetIso(createdAt, 3)
   });
   appendSituationLog(store, {
@@ -1107,6 +1127,7 @@ export function appendAgentNextStepProposal(
   }
 ) {
   ensureSituationRoomCollections(store);
+  const normalizedChoices = choices.map(normalizeNextStepChoice);
   const proposal = createSituationCard({
     id: createId("card", "next_step", agentId, sourceType, sourceId, createdAt),
     roomId,
@@ -1116,12 +1137,7 @@ export function appendAgentNextStepProposal(
     title: `${agentId} proposes next step`,
     summary,
     severity: "info",
-    actions: choices.map((choice, index) => ({
-      id: choice.id || createId("choice", index + 1, choice.label),
-      label: choice.label,
-      description: choice.description,
-      effect: "advisory_only"
-    })),
+    actions: normalizedChoices,
     workOrderId,
     sourceEventId,
     traceId: traceId || createId("trace", "next_step", sourceId),
@@ -1129,6 +1145,13 @@ export function appendAgentNextStepProposal(
   });
   proposal.sourceType = sourceType;
   proposal.sourceId = sourceId;
+  proposal.proposalCardId = proposal.id;
+  proposal.choices = normalizedChoices;
+  proposal.status = "pending";
+  proposal.selectedChoiceId = null;
+  proposal.selectedBy = null;
+  proposal.selectedAt = null;
+  proposal.localOnlyNotice = "Pending human selection; local consequence only.";
   store.situationCards.unshift(proposal);
   appendSituationLog(store, {
     roomId,
@@ -1136,10 +1159,122 @@ export function appendAgentNextStepProposal(
     artifactType: "card",
     artifactId: proposal.id,
     actorId: agentId,
+    sourceEventId,
     summary,
     createdAt
   });
   return proposal;
+}
+
+export function appendTreuhandReviewNextStepProposal(store, { recommendation, reviewDecision, createdAt = new Date().toISOString() }) {
+  if (!recommendation) throw new Error("recommendation is required for review next-step proposal.");
+  if (!reviewDecision) throw new Error("reviewDecision is required for review next-step proposal.");
+  return appendAgentNextStepProposal(store, {
+    roomId: "room_case_march_2026",
+    agentId: "A-TREU-001",
+    caseId: recommendation.caseId,
+    workOrderId: recommendation.workOrderId || null,
+    sourceType: "review_decision",
+    sourceId: reviewDecision.id,
+    sourceEventId: recommendation.sourceEventId || null,
+    traceId: recommendation.traceId || createId("trace", "review_decision", reviewDecision.id),
+    summary: nextStepSummaryForReviewDecision(reviewDecision),
+    choices: nextStepChoicesForReviewDecision(reviewDecision),
+    createdAt
+  });
+}
+
+export function selectFirstPendingNextStep(store, actorId = "human_reviewer", createdAt = new Date().toISOString()) {
+  ensureSituationRoomCollections(store);
+  const proposal = store.situationCards.find((card) => card.type === "agent_next_step_proposal" && card.status === "pending");
+  if (!proposal) return null;
+  return selectAgentNextStep(store, proposal.id, proposal.actions[0]?.id, actorId, createdAt);
+}
+
+export function selectAgentNextStep(
+  store,
+  proposalCardId,
+  choiceId,
+  actorId = "human_reviewer",
+  createdAt = new Date().toISOString()
+) {
+  ensureSituationRoomCollections(store);
+  const proposal = store.situationCards.find((card) => card.id === proposalCardId && card.type === "agent_next_step_proposal");
+  if (!proposal) throw new Error(`Unknown next-step proposal: ${proposalCardId}`);
+  if (proposal.status !== "pending") {
+    throw new Error(`Next-step proposal ${proposalCardId} is already ${proposal.status || "closed"}.`);
+  }
+  const choice = proposal.actions.find((item) => item.id === choiceId);
+  if (!choice) throw new Error(`Unknown next-step choice: ${choiceId}`);
+
+  const followThrough = createLocalFollowThrough({
+    proposal,
+    choice,
+    actorId,
+    createdAt
+  });
+  proposal.status = "selected";
+  proposal.selectedChoiceId = choice.id;
+  proposal.selectedChoiceLabel = choice.label;
+  proposal.selectedBy = actorId;
+  proposal.selectedAt = createdAt;
+  proposal.followThroughId = followThrough.id;
+  proposal.localConsequenceType = choice.localConsequenceType;
+  proposal.localOnlyNotice = "Local consequence recorded only; no external action executed.";
+  proposal.updatedAt = createdAt;
+
+  store.situationFollowThroughs.unshift(followThrough);
+  const card = createSituationCard({
+    id: createId("card", "follow_through", followThrough.id),
+    roomId: proposal.roomId,
+    type: "local_follow_through_recorded",
+    agentId: proposal.agentId,
+    caseId: proposal.caseId,
+    title: "Local follow-through recorded",
+    summary: `${actorId} selected "${choice.label}" for ${proposal.agentId}. Local consequence recorded only; no external action executed.`,
+    severity: "info",
+    workOrderId: proposal.workOrderId,
+    sourceEventId: proposal.sourceEventId || null,
+    traceId: proposal.traceId,
+    createdAt
+  });
+  card.sourceType = proposal.sourceType;
+  card.sourceId = proposal.sourceId;
+  card.proposalCardId = proposal.id;
+  card.followThroughId = followThrough.id;
+  card.selectedChoiceId = choice.id;
+  card.localConsequenceType = choice.localConsequenceType;
+  store.situationCards.unshift(card);
+
+  appendSystemRoomMessage(store, {
+    roomId: proposal.roomId,
+    text: `${proposal.agentId} recorded local follow-through ${followThrough.id}: ${choice.label}. No external action executed.`,
+    sourceEventId: proposal.sourceEventId || null,
+    createdAt: offsetIso(createdAt, 1)
+  });
+  appendSituationLog(store, {
+    roomId: proposal.roomId,
+    eventType: "local_follow_through_recorded",
+    artifactType: "follow_through",
+    artifactId: followThrough.id,
+    actorId,
+    sourceEventId: proposal.sourceEventId || null,
+    summary: followThrough.localConsequenceSummary,
+    createdAt
+  });
+  store.activeSituationRoomId = proposal.roomId;
+  store.activeSituationPack = "next_steps";
+  store.situationLastAction = {
+    status: "local_follow_through_recorded",
+    roomId: proposal.roomId,
+    workOrderId: proposal.workOrderId || null,
+    sourceEventId: proposal.sourceEventId || null,
+    cardIds: [proposal.id, card.id],
+    followThroughId: followThrough.id,
+    summary: `${choice.label} selected locally; no external action executed.`,
+    createdAt
+  };
+  return { proposal, followThrough, card };
 }
 
 export function parseAgentTag(text) {
@@ -1193,6 +1328,9 @@ function runInboundEmailScenario(store, scenario, createdAt, sourceEvent) {
       ...recommendation,
       caseId: caseRecord.id,
       runId: run.id,
+      workOrderId: workOrder.id,
+      sourceEventId: sourceEvent.id,
+      traceId,
       reviewStatus: "pending",
       draft: output.draft_outputs.email_draft
     });
@@ -1657,7 +1795,7 @@ function createApprovalRequest({
   };
 }
 
-function appendSystemRoomMessage(store, { roomId, text, createdAt = new Date().toISOString() }) {
+function appendSystemRoomMessage(store, { roomId, text, sourceEventId = null, createdAt = new Date().toISOString() }) {
   const message = createRoomMessage({
     id: createId("msg", roomId, "system", createdAt, store.roomMessages.length + 1),
     roomId,
@@ -1673,6 +1811,7 @@ function appendSystemRoomMessage(store, { roomId, text, createdAt = new Date().t
     artifactType: "message",
     artifactId: message.id,
     actorId: "system",
+    sourceEventId,
     summary: text,
     createdAt
   });
@@ -1715,45 +1854,136 @@ function createSituationLog({ id, roomId, eventType, artifactType, artifactId, a
   };
 }
 
+function createLocalFollowThrough({ proposal, choice, actorId, createdAt }) {
+  return {
+    id: createId("follow", proposal.id, choice.id, createdAt),
+    followThroughId: createId("follow", proposal.id, choice.id, createdAt),
+    proposalCardId: proposal.id,
+    roomId: proposal.roomId,
+    agentId: proposal.agentId,
+    caseId: proposal.caseId || null,
+    workOrderId: proposal.workOrderId || null,
+    sourceType: proposal.sourceType,
+    sourceId: proposal.sourceId,
+    sourceEventId: proposal.sourceEventId || null,
+    selectedChoiceId: choice.id,
+    selectedChoiceLabel: choice.label,
+    localConsequenceType: choice.localConsequenceType,
+    localConsequenceSummary: `${choice.label}: ${choice.description || "Local consequence recorded only."}`,
+    status: "recorded_local_only",
+    actorId,
+    traceId: proposal.traceId,
+    truthLabel: SITUATION_TRUTH_LABEL,
+    truthLabelText: "synthetic/local only",
+    externalEffect: "none",
+    createdAt
+  };
+}
+
+function normalizeNextStepChoice(choice, index) {
+  return {
+    id: choice.id || createId("choice", index + 1, choice.label),
+    label: choice.label,
+    description: choice.description,
+    localConsequenceType: choice.localConsequenceType || choice.id || createId("local_consequence", index + 1, choice.label),
+    effect: "local_consequence_only"
+  };
+}
+
 function nextStepSummaryForApproval(approval) {
+  const statusCopy = approval.status === "approved" ? "approved" : "rejected";
   if (approval.actionType === "review_before_send") {
-    return "Choose whether to keep the draft in review, edit the reminder, or move to Validation before any client use.";
+    return `Draft review was ${statusCopy}. Choose the next safe local consequence before any client use.`;
   }
   if (approval.actionType === "grant_read_only_and_draft_access") {
-    return "Choose whether to keep access as a local recommendation, tighten the scope, or reject the onboarding packet.";
+    return `Onboarding access recommendation was ${statusCopy}. Choose the next local access-planning consequence; no IAM change will run.`;
   }
   if (approval.actionType === "approve_operating_memory_candidate") {
-    return "Choose whether to keep the memory candidate local, revise the proposed skill, or defer until real anonymized cases confirm the pattern.";
+    return `Memory candidate review was ${statusCopy}. Choose the next local backlog consequence; no durable memory promotion will run.`;
   }
-  return `Choose the next local-only review step after ${approval.actionType}.`;
+  return `Choose the next local-only review step after ${approval.actionType} was ${statusCopy}.`;
 }
 
 function nextStepChoicesForApproval(approval) {
-  if (approval.actionType === "review_before_send") {
+  const status = approval.status === "approved" ? "approved" : "rejected";
+  const choicesByAction = {
+    review_before_send: {
+      approved: [
+        choice("inspect_draft_before_use", "Inspect draft before use", "Review draft wording and evidence links locally before any client use.", "inspect_local_draft"),
+        choice("keep_draft_blocked_for_edit", "Keep draft blocked for edit", "Record that the draft stays blocked while a human edits it locally.", "keep_draft_blocked"),
+        choice("move_to_validation_capture", "Move to Validation capture", "Open the validation workflow and capture reviewer feedback.", "capture_validation_feedback")
+      ],
+      rejected: [
+        choice("mark_draft_not_usable", "Mark draft not usable", "Record that this draft should not be used in the demo flow.", "mark_local_draft_not_usable"),
+        choice("request_revised_draft", "Request revised draft", "Ask A-TREU to prepare a revised local draft for human review.", "request_local_revised_draft"),
+        choice("ask_for_missing_client_documents", "Ask for missing client documents", "Record a local follow-up request for missing packet items.", "request_missing_documents")
+      ]
+    },
+    grant_read_only_and_draft_access: {
+      approved: [
+        choice("record_least_privilege_plan", "Record local least-privilege plan", "Keep the access recommendation as a local planning record only.", "record_local_access_plan"),
+        choice("tighten_scope_before_real_iam", "Tighten scope before real IAM", "Reduce the recommended scope before any future production access request.", "tighten_access_scope"),
+        choice("schedule_access_review", "Schedule access review", "Record a local review reminder for the access plan.", "schedule_local_access_review")
+      ],
+      rejected: [
+        choice("prepare_narrower_access_request", "Prepare narrower access request", "Draft a narrower local access request for boss review.", "prepare_narrower_access_request"),
+        choice("close_onboarding_packet", "Close onboarding packet", "Record the onboarding packet as closed locally.", "close_local_onboarding_packet"),
+        choice("ask_boss_for_role_clarification", "Ask boss for role clarification", "Record a local clarification request about the employee role.", "request_role_clarification")
+      ]
+    },
+    approve_operating_memory_candidate: {
+      approved: [
+        choice("keep_candidate_local_backlog", "Keep candidate in local memory backlog", "Keep the candidate as proposed local backlog, not promoted memory.", "keep_local_memory_backlog"),
+        choice("revise_skill_wording_before_promotion", "Revise skill wording before promotion", "Record a local rewrite step before any future memory promotion review.", "revise_skill_wording"),
+        choice("wait_for_real_anonymized_cases", "Wait for real anonymized cases", "Defer action until anonymized cases repeat the pattern.", "wait_for_real_cases")
+      ],
+      rejected: [
+        choice("archive_candidate", "Archive candidate", "Record the candidate as archived locally.", "archive_local_memory_candidate"),
+        choice("rewrite_from_reviewer_notes", "Rewrite from reviewer notes", "Record a local rewrite task grounded in reviewer notes.", "rewrite_from_reviewer_notes"),
+        choice("wait_for_repeated_evidence", "Wait for repeated evidence", "Keep the finding dormant until repeated evidence appears.", "wait_for_repeated_evidence")
+      ]
+    }
+  };
+  return choicesByAction[approval.actionType]?.[status] || [
+    choice("record_only", "Record only", "Keep the decision as a local audit record.", "record_local_only"),
+    choice("review_later", "Review later", "Leave follow-up for a human reviewer.", "defer_human_review")
+  ];
+}
+
+function nextStepSummaryForReviewDecision(reviewDecision) {
+  if (reviewDecision.decision === "approve") {
+    return "Recommendation was approved. Choose the next safe local step before any client-facing use.";
+  }
+  if (reviewDecision.decision === "edit") {
+    return "Recommendation needs edits. Choose the next local revision or checklist step.";
+  }
+  return "Recommendation was rejected. Choose the next local learning or gap-analysis step.";
+}
+
+function nextStepChoicesForReviewDecision(reviewDecision) {
+  if (reviewDecision.decision === "approve") {
     return [
-      { id: "inspect_draft", label: "Inspect draft", description: "Open the review queue and inspect the client reminder." },
-      { id: "edit_before_use", label: "Edit locally", description: "Keep the draft blocked and mark that human edits are needed." },
-      { id: "validate_case", label: "Validate case", description: "Move to Validation and capture reviewer evidence." }
+      choice("inspect_evidence_links", "Inspect evidence links", "Review the cited evidence IDs before any client-facing use.", "inspect_evidence_links"),
+      choice("keep_draft_local_review", "Keep draft in local review", "Keep the draft in the local review queue.", "keep_draft_local_review"),
+      choice("capture_validation_feedback", "Capture validation feedback", "Move to Validation and capture reviewer feedback.", "capture_validation_feedback")
     ];
   }
-  if (approval.actionType === "grant_read_only_and_draft_access") {
+  if (reviewDecision.decision === "edit") {
     return [
-      { id: "keep_least_privilege", label: "Keep least privilege", description: "Record the local least-privilege recommendation only." },
-      { id: "tighten_scope", label: "Tighten scope", description: "Remove draft access from the recommended access bundle." },
-      { id: "reject_access", label: "Reject access", description: "Reject the local onboarding recommendation." }
-    ];
-  }
-  if (approval.actionType === "approve_operating_memory_candidate") {
-    return [
-      { id: "keep_candidate", label: "Keep candidate", description: "Leave the memory candidate proposed, not promoted." },
-      { id: "revise_skill", label: "Revise skill", description: "Rewrite the skill candidate after reviewer notes." },
-      { id: "wait_for_cases", label: "Wait for cases", description: "Defer until real anonymized cases repeat the failure mode." }
+      choice("revise_draft_locally", "Revise draft locally", "Record that the draft needs local human edits.", "revise_draft_locally"),
+      choice("add_reviewer_note", "Add reviewer note", "Attach reviewer guidance to the local record.", "add_reviewer_note"),
+      choice("rerun_after_checklist_update", "Re-run after checklist update", "Record a local rerun after checklist changes.", "rerun_after_checklist_update")
     ];
   }
   return [
-    { id: "record_only", label: "Record only", description: "Keep the decision as a local audit record." },
-    { id: "review_later", label: "Review later", description: "Leave follow-up for a human reviewer." }
+    choice("mark_recommendation_not_usable", "Mark recommendation not usable", "Record that this recommendation should not be used.", "mark_recommendation_not_usable"),
+    choice("inspect_false_positive_cause", "Inspect false-positive cause", "Review why the agent produced an unusable recommendation.", "inspect_false_positive_cause"),
+    choice("create_gap_candidate", "Create gap candidate for A-GAP review", "Record a local candidate for A-GAP review.", "create_gap_candidate")
   ];
+}
+
+function choice(id, label, description, localConsequenceType) {
+  return { id, label, description, localConsequenceType };
 }
 
 function detectUploadRiskSignals(upload) {
@@ -1783,6 +2013,7 @@ function ensureSituationRoomCollections(store) {
   store.situationCards ||= [];
   store.approvalRequests ||= [];
   store.situationSourceEvents ||= [];
+  store.situationFollowThroughs ||= [];
   store.selectedSituationCardId ||= null;
   store.expandedSituationAgentId ||= null;
   store.situationDemoConductor ||= createInitialDemoConductor();

@@ -29,6 +29,7 @@ import {
   SITUATION_ARTIFACT_PACKS,
   SITUATION_ROOM_SCENARIOS,
   appendAgentNextStepProposal,
+  appendTreuhandReviewNextStepProposal,
   exportSituationDemoSnapshot,
   importSituationDemoSnapshot,
   postSituationMessage,
@@ -36,6 +37,8 @@ import {
   resolveSituationApproval,
   runSituationDemoAct,
   runWeekTwoContinuityScenario,
+  selectAgentNextStep,
+  selectFirstPendingNextStep,
   setSituationArtifactPack,
   summarizeSituationMetrics,
   summarizeSituationAgentParticipation
@@ -208,8 +211,11 @@ function renderSituationRoom() {
   const roomWorkOrders = store.workOrders.filter((workOrder) => workOrder.roomId === roomId);
   const roomApprovals = store.approvalRequests.filter((approval) => approval.roomId === roomId);
   const roomSourceEvents = (store.situationSourceEvents || []).filter((event) => event.roomId === roomId);
+  const roomNextSteps = store.situationCards.filter((card) => card.roomId === roomId && card.type === "agent_next_step_proposal");
+  const roomFollowThroughs = (store.situationFollowThroughs || []).filter((item) => item.roomId === roomId);
   const roomLogs = (store.situationEventLog || []).filter((log) => log.roomId === roomId);
   const allPendingApprovals = store.approvalRequests.filter((approval) => approval.status === "pending");
+  const allPendingNextSteps = store.situationCards.filter((card) => card.type === "agent_next_step_proposal" && card.status === "pending");
   const agentParticipation = summarizeSituationAgentParticipation(store);
   const expandedAgent = agentParticipation.find((agent) => agent.agentId === store.expandedSituationAgentId);
   const conductor = store.situationDemoConductor || {};
@@ -234,6 +240,8 @@ function renderSituationRoom() {
       ${metricTile("Cards", String(situationMetrics.cards))}
       ${metricTile("Work orders", String(situationMetrics.workOrders))}
       ${metricTile("Reviewed gates", String(situationMetrics.reviewedApprovals))}
+      ${metricTile("Next steps", String(situationMetrics.pendingNextSteps))}
+      ${metricTile("Follow-throughs", String(situationMetrics.selectedFollowThroughs))}
       ${metricTile("Local logs", String(situationMetrics.logs))}
     </div>
 
@@ -319,7 +327,7 @@ function renderSituationRoom() {
             ${SITUATION_ARTIFACT_PACKS.map((pack) => renderPackButton(pack, activePack)).join("")}
           </div>
           <div class="packed-artifact-list">
-            ${renderSituationArtifactPack(activePack, { roomCards, roomWorkOrders, roomApprovals, roomSourceEvents, roomLogs })}
+            ${renderSituationArtifactPack(activePack, { roomCards, roomWorkOrders, roomApprovals, roomSourceEvents, roomNextSteps, roomFollowThroughs, roomLogs })}
           </div>
         </div>
 
@@ -334,6 +342,25 @@ function renderSituationRoom() {
 
       <aside class="subpanel situation-side">
         <div class="subpanel-heading">
+          <h3>Pending next steps</h3>
+          <span>${roomNextSteps.filter((card) => card.status === "pending").length}</span>
+        </div>
+        ${
+          allPendingNextSteps.length > 0
+            ? `<button class="secondary-button full-width-button" id="select-first-next-step-local" title="Select one pending next step locally for demo flow">Select first pending next step locally</button>`
+            : ""
+        }
+        <div class="artifact-list compact-list">
+          ${roomNextSteps.length === 0 ? emptyState("No responsible-agent next-step proposals in this room.") : roomNextSteps.map(renderNextStepProposal).join("")}
+        </div>
+        <div class="subpanel-heading stacked-heading">
+          <h3>Selected follow-through</h3>
+          <span>${roomFollowThroughs.length}</span>
+        </div>
+        <div class="artifact-list compact-list">
+          ${roomFollowThroughs.length === 0 ? emptyState("No local follow-through recorded in this room.") : roomFollowThroughs.map(renderFollowThroughRecord).join("")}
+        </div>
+        <div class="subpanel-heading stacked-heading">
           <h3>Pending approvals</h3>
           <span>${roomApprovals.length}</span>
         </div>
@@ -359,6 +386,8 @@ function renderSituationRoom() {
   document.querySelector("#reset-situation-demo-state").addEventListener("click", handleResetSituationDemoState);
   const approveAll = document.querySelector("#approve-all-demo-approvals");
   if (approveAll) approveAll.addEventListener("click", handleApproveAllDemoApprovals);
+  const selectFirstNextStep = document.querySelector("#select-first-next-step-local");
+  if (selectFirstNextStep) selectFirstNextStep.addEventListener("click", handleSelectFirstNextStep);
   document.querySelectorAll("[data-situation-agent-id]").forEach((button) => {
     button.addEventListener("click", () => handleSituationAgentToggle(button.dataset.situationAgentId));
   });
@@ -389,6 +418,9 @@ function renderSituationRoom() {
   });
   document.querySelectorAll("[data-situation-approval-id]").forEach((button) => {
     button.addEventListener("click", () => handleSituationApproval(button.dataset.situationApprovalId, button.dataset.situationApprovalDecision));
+  });
+  document.querySelectorAll("[data-next-step-proposal-id]").forEach((button) => {
+    button.addEventListener("click", () => handleSelectNextStep(button.dataset.nextStepProposalId, button.dataset.nextStepChoiceId));
   });
 }
 
@@ -741,10 +773,12 @@ function renderMetrics() {
         ${metricTile("Pending approvals", String(situationMetrics.pendingApprovals))}
         ${metricTile("Reviewed gates", String(situationMetrics.reviewedApprovals))}
         ${metricTile("Review actions", String(situationMetrics.reviewActions))}
+        ${metricTile("Pending next steps", String(situationMetrics.pendingNextSteps))}
+        ${metricTile("Follow-throughs", String(situationMetrics.selectedFollowThroughs))}
         ${metricTile("Blocked work", String(situationMetrics.blockedWork))}
         ${metricTile("Local logs", String(situationMetrics.logs))}
       </div>
-      <p class="boundary-copy">Local logs live in browser localStorage key ${escapeHtml(situationMetrics.localStorageKey)} under situationEventLog, roomMessages, situationCards, workOrders, and approvalRequests.</p>
+      <p class="boundary-copy">Local state lives in browser localStorage key ${escapeHtml(situationMetrics.localStorageKey)} under situationEventLog, roomMessages, situationCards, workOrders, approvalRequests, situationSourceEvents, and situationFollowThroughs.</p>
       <p class="compact-copy">${escapeHtml(situationMetrics.lastAction)}</p>
     </section>
     <section class="subpanel">
@@ -850,6 +884,23 @@ function handleApproveAllDemoApprovals() {
     activeCase(store).id,
     "situation_demo_safe_approvals",
     `${resolved.length} local-only approval decision(s) recorded.`
+  );
+  render();
+}
+
+function handleSelectNextStep(proposalCardId, choiceId) {
+  selectAgentNextStep(store, proposalCardId, choiceId, store.user?.id || "human_reviewer");
+  addAuditEvent(store, activeCase(store).id, "situation_next_step_selected", `${proposalCardId} -> ${choiceId} recorded locally.`);
+  render();
+}
+
+function handleSelectFirstNextStep() {
+  const result = selectFirstPendingNextStep(store, store.user?.id || "human_reviewer");
+  addAuditEvent(
+    store,
+    activeCase(store).id,
+    "situation_demo_next_step_selected",
+    result ? `${result.followThrough.id} recorded locally.` : "No pending next-step proposal available."
   );
   render();
 }
@@ -1090,9 +1141,9 @@ function handleValidationSubmit(event) {
     sourceId: validationRecord.validationRecordId,
     summary: "Validation evidence was captured. Choose whether to inspect failure tags, build a local export, or ask for the first 3-5 anonymized real cases.",
     choices: [
-      { id: "inspect_failure_tags", label: "Inspect failure tags", description: "Review captured failure modes before changing the workflow." },
-      { id: "build_export", label: "Build export", description: "Create a local validation package if the record is human-captured." },
-      { id: "request_cases", label: "Request cases", description: "Use the anonymized data request for 3-5 real Treuhand cases." }
+      { id: "inspect_failure_tags", label: "Inspect failure tags", description: "Review captured failure modes before changing the workflow.", localConsequenceType: "inspect_failure_tags" },
+      { id: "build_export", label: "Build export locally", description: "Create a local validation package if the record is human-captured.", localConsequenceType: "build_local_validation_export" },
+      { id: "request_cases", label: "Request anonymized cases", description: "Use the anonymized data request for 3-5 real Treuhand cases.", localConsequenceType: "request_anonymized_cases" }
     ]
   });
   render();
@@ -1197,19 +1248,10 @@ function handleReview(recommendationId, decision) {
 
   store.reviewDecisions.unshift(reviewDecision);
   addAuditEvent(store, recommendation.caseId, "review_decision", `Reviewer decision: ${decision}.`);
-  appendAgentNextStepProposal(store, {
-    roomId: "room_case_march_2026",
-    agentId: "A-TREU-001",
-    caseId: recommendation.caseId,
-    workOrderId: recommendation.workOrderId || null,
-    sourceType: "review_decision",
-    sourceId: reviewDecision.id,
-    summary: `Human marked recommendation ${decision}. Choose whether to inspect evidence links, revise the draft, or capture validation feedback.`,
-    choices: [
-      { id: "inspect_evidence", label: "Inspect evidence", description: "Review the evidence IDs linked to the recommendation." },
-      { id: "revise_draft", label: "Revise draft", description: "Keep the client-facing draft in local review." },
-      { id: "capture_validation", label: "Capture validation", description: "Move to Validation and record reviewer feedback." }
-    ]
+  appendTreuhandReviewNextStepProposal(store, {
+    recommendation,
+    reviewDecision,
+    createdAt: reviewDecision.createdAt
   });
   render();
 }
@@ -1451,7 +1493,7 @@ function renderPackButton(pack, activePack) {
   `;
 }
 
-function renderSituationArtifactPack(activePack, { roomCards, roomWorkOrders, roomApprovals, roomSourceEvents, roomLogs }) {
+function renderSituationArtifactPack(activePack, { roomCards, roomWorkOrders, roomApprovals, roomSourceEvents, roomNextSteps, roomFollowThroughs, roomLogs }) {
   if (activePack === "events") {
     const events = [
       ...roomSourceEvents,
@@ -1472,6 +1514,13 @@ function renderSituationArtifactPack(activePack, { roomCards, roomWorkOrders, ro
   }
   if (activePack === "logs") {
     return roomLogs.length === 0 ? emptyState("No local log records in this room.") : roomLogs.map(renderPackedLog).join("");
+  }
+  if (activePack === "next_steps") {
+    const items = [
+      ...roomNextSteps.map((item) => ({ ...item, artifactKind: "proposal" })),
+      ...roomFollowThroughs.map((item) => ({ ...item, artifactKind: "follow_through" }))
+    ].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    return items.length === 0 ? emptyState("No next-step proposals or follow-through records in this room.") : items.map(renderPackedNextStepItem).join("");
   }
   return roomCards.length === 0 ? emptyState("No cards in this room.") : roomCards.map(renderPackedCard).join("");
 }
@@ -1546,6 +1595,29 @@ function renderPackedApproval(approval) {
   `;
 }
 
+function renderPackedNextStepItem(item) {
+  if (item.artifactKind === "follow_through") {
+    return `
+      <details class="packed-artifact">
+        <summary>
+          <strong>${escapeHtml(item.selectedChoiceLabel)}</strong>
+          <span>${escapeHtml(item.status)} - ${formatTime(item.createdAt)}</span>
+        </summary>
+        ${renderFollowThroughRecord(item)}
+      </details>
+    `;
+  }
+  return `
+    <details class="packed-artifact">
+      <summary>
+        <strong>${escapeHtml(item.title)}</strong>
+        <span>${escapeHtml(item.status || "pending")} - ${formatTime(item.createdAt)}</span>
+      </summary>
+      ${renderNextStepProposal(item)}
+    </details>
+  `;
+}
+
 function renderPackedLog(log) {
   return `
     <details class="packed-artifact packed-log">
@@ -1579,6 +1651,97 @@ function renderAdvisoryChoices(actions) {
         )
         .join("")}
     </div>
+  `;
+}
+
+function renderNextStepProposal(card) {
+  const followThrough = (store.situationFollowThroughs || []).find((item) => item.proposalCardId === card.id);
+  const selected = card.status === "selected";
+  return `
+    <article class="artifact-item next-step-card">
+      <div class="artifact-heading">
+        <strong>${escapeHtml(card.status || "pending")}</strong>
+        <span>${escapeHtml(card.agentId || "responsible agent")}</span>
+      </div>
+      <p>${escapeHtml(card.summary)}</p>
+      <div class="mini-meta">
+        ${renderCompactIdMeta("proposal", [card.id], 1)}
+        ${card.sourceType ? `<span>source type: ${escapeHtml(card.sourceType)}</span>` : ""}
+        ${card.sourceId ? renderCompactIdMeta("source", [card.sourceId], 1) : ""}
+        ${card.sourceEventId ? renderCompactIdMeta("source event", [card.sourceEventId], 1) : ""}
+        ${card.workOrderId ? renderCompactIdMeta("work order", [card.workOrderId], 1) : ""}
+        ${card.caseId ? `<span>case: ${escapeHtml(card.caseId)}</span>` : ""}
+        ${card.traceId ? renderCompactIdMeta("trace", [card.traceId], 1) : ""}
+        <span>truth: ${escapeHtml(card.truthLabelText || "synthetic/local only")}</span>
+        <span>external effects: ${escapeHtml(card.externalEffect || "none")}</span>
+        <span>created: ${formatTime(card.createdAt)}</span>
+      </div>
+      ${
+        selected
+          ? `<div class="selected-choice">
+              <strong>Selected locally: ${escapeHtml(card.selectedChoiceLabel || card.selectedChoiceId)}</strong>
+              ${followThrough ? renderCompactIdMeta("follow-through", [followThrough.id], 1) : ""}
+              <p class="boundary-copy">Local consequence recorded only; no external action executed.</p>
+            </div>`
+          : renderNextStepChoices(card)
+      }
+    </article>
+  `;
+}
+
+function renderNextStepChoices(card) {
+  return `
+    <div class="advisory-choice-list next-step-choice-list">
+      ${(card.actions || [])
+        .map(
+          (action) => `
+            <article class="advisory-choice next-step-choice">
+              <strong>${escapeHtml(action.label)}</strong>
+              <span>${escapeHtml(action.description || "Local consequence only.")}</span>
+              <div class="mini-meta">
+                <span>consequence: ${escapeHtml(action.localConsequenceType || "local_record_only")}</span>
+              </div>
+              <button
+                type="button"
+                class="secondary-button"
+                data-next-step-proposal-id="${escapeHtml(card.id)}"
+                data-next-step-choice-id="${escapeHtml(action.id)}"
+                title="Record this local-only consequence"
+              >Select locally</button>
+            </article>
+          `
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function renderFollowThroughRecord(record) {
+  return `
+    <article class="artifact-item follow-through-record">
+      <div class="artifact-heading">
+        <strong>${escapeHtml(record.selectedChoiceLabel)}</strong>
+        <span>${escapeHtml(record.status)}</span>
+      </div>
+      <p>${escapeHtml(record.localConsequenceSummary)}</p>
+      <div class="mini-meta">
+        ${renderCompactIdMeta("follow-through", [record.id], 1)}
+        ${renderCompactIdMeta("proposal", [record.proposalCardId], 1)}
+        ${record.sourceType ? `<span>source type: ${escapeHtml(record.sourceType)}</span>` : ""}
+        ${record.sourceId ? renderCompactIdMeta("source", [record.sourceId], 1) : ""}
+        ${record.sourceEventId ? renderCompactIdMeta("source event", [record.sourceEventId], 1) : ""}
+        ${record.workOrderId ? renderCompactIdMeta("work order", [record.workOrderId], 1) : ""}
+        ${record.caseId ? `<span>case: ${escapeHtml(record.caseId)}</span>` : ""}
+        ${record.traceId ? renderCompactIdMeta("trace", [record.traceId], 1) : ""}
+        <span>agent: ${escapeHtml(record.agentId)}</span>
+        <span>actor: ${escapeHtml(record.actorId)}</span>
+        <span>consequence: ${escapeHtml(record.localConsequenceType)}</span>
+        <span>truth: ${escapeHtml(record.truthLabelText || record.truthLabel)}</span>
+        <span>external effects: ${escapeHtml(record.externalEffect || "none")}</span>
+        <span>created: ${formatTime(record.createdAt)}</span>
+      </div>
+      <p class="boundary-copy">Local consequence recorded only; no external action executed.</p>
+    </article>
   `;
 }
 
@@ -1645,6 +1808,7 @@ function renderRoomMessage(message) {
 }
 
 function renderSituationCard(card) {
+  if (card.type === "agent_next_step_proposal") return renderNextStepProposal(card);
   const fresh = store.situationDemoConductor?.lastAct?.createdCardIds?.includes(card.id) ? "is-created-this-act" : "";
   const blockedCopy =
     card.approvalId && card.approvalStatus === "pending"
@@ -1670,6 +1834,11 @@ function renderSituationCard(card) {
         ${card.runId ? `<span>run: ${escapeHtml(card.runId)}</span>` : ""}
         ${card.approvalId ? `<span>approval: ${escapeHtml(card.approvalId)}</span>` : ""}
         ${card.approvalId ? `<span>approval status: ${escapeHtml(card.approvalStatus)}</span>` : ""}
+        ${card.sourceType ? `<span>source type: ${escapeHtml(card.sourceType)}</span>` : ""}
+        ${card.sourceId ? renderCompactIdMeta("source", [card.sourceId], 1) : ""}
+        ${card.proposalCardId ? renderCompactIdMeta("proposal", [card.proposalCardId], 1) : ""}
+        ${card.followThroughId ? renderCompactIdMeta("follow-through", [card.followThroughId], 1) : ""}
+        ${card.localConsequenceType ? `<span>consequence: ${escapeHtml(card.localConsequenceType)}</span>` : ""}
         <span>trace: ${escapeHtml(card.traceId)}</span>
         <span>truth: ${escapeHtml(card.truthLabelText || card.truthLabel || "synthetic/local")}</span>
         <span>external effects: ${escapeHtml(card.externalEffect || "none")}</span>

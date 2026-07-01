@@ -107,7 +107,9 @@ Click `Reset demo state`, then run the numbered `Demo conductor` acts one by one
 
 Each act should first show an `Event Source` panel with the synthetic source, trigger, source actor, payload preview, expected agents, `sourceEventId`, and local-only adapter boundary. Then the `Created this act` panel shows new card, work-order, approval, and local-log counts, plus a contrast between a generic chatbot and the governed Cambrian agent loop. The demo should show six active agents, typed cards, work orders, pending approvals, no external side effects, and `synthetic/local` truth labels.
 
-Each thematic room has its own retained local chat. Agent commands append a human message, create local artifacts when supported, and add a system reply naming the created work order/cards/approval gates. Dense output is packed into switchable `Agent cards`, `Events`, `Work orders`, `Approvals`, and `Local logs` views so the demo does not require scanning one giant timeline.
+After a human approves or rejects a gate, the responsible agent creates a pending next-step proposal. The human selects a consequence with `Select locally`, and the app records a local follow-through artifact. This does not send email, grant access, promote memory, call external APIs, or execute production actions.
+
+Each thematic room has its own retained local chat. Agent commands append a human message, create local artifacts when supported, and add a system reply naming the created work order/cards/approval gates. Dense output is packed into switchable `Agent cards`, `Next steps`, `Events`, `Work orders`, `Approvals`, and `Local logs` views so the demo does not require scanning one giant timeline.
 
 Demo-useful tags also run local deterministic scenarios:
 
@@ -122,9 +124,9 @@ This is not a Slack clone, Gmail integration, browser DLP tool, IAM system, or a
 
 After the Situation Room walkthrough, open `Validation` to show the proof package: anonymized case import, reviewer capture, before/after memo, export privacy gate, and fixture-versus-human proof separation.
 
-Local Situation Room state lives in browser `localStorage` under the app store key `agentops-core-store-v1`, specifically in `situationSourceEvents`, `situationEventLog`, `roomMessages`, `situationCards`, `workOrders`, and `approvalRequests`. The Metrics tab includes live Situation Room counts for messages, cards, work orders, approvals, blocked work, review actions, and local logs.
+Local Situation Room state lives in browser `localStorage` under the app store key `agentops-core-store-v1`, specifically in `situationSourceEvents`, `situationFollowThroughs`, `situationEventLog`, `roomMessages`, `situationCards`, `workOrders`, and `approvalRequests`. The Metrics tab includes live Situation Room counts for messages, cards, work orders, approvals, pending next steps, selected follow-through, blocked work, review actions, and local logs.
 
-For a second demo a week later, use `Save demo snapshot` to create a versioned local JSON snapshot, then `Load snapshot` on another browser/session to restore the state. `Advance one week` runs a synthetic continuity scenario where `A-CAD-001` reviews prior source events, local logs, unresolved approvals, blocked work, and next business steps. This is portable demo persistence, not a production database or audit ledger.
+For a second demo a week later, use `Save demo snapshot` to create a versioned local JSON snapshot, then `Load snapshot` on another browser/session to restore the state. `Advance one week` runs a synthetic continuity scenario where `A-CAD-001` reviews prior source events, local follow-through decisions, local logs, unresolved approvals, blocked work, and next business steps. This is portable demo persistence, not a production database or audit ledger.
 
 ## Fail-Fast Validation
 
